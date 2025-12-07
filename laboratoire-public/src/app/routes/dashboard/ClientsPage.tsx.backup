@@ -1,0 +1,254 @@
+import { useState } from 'react'
+
+export function ClientsPage() {
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filterType, setFilterType] = useState('TOUS')
+
+  // Données de démonstration
+  const clients = [
+    {
+      id: '1',
+      raison_sociale: 'SOCOCE',
+      type_client: 'ENTREPRISE',
+      ville: 'Douala',
+      telephone: '+237 233 40 50 60',
+      email: 'contact@sococe.cm',
+      est_actif: true,
+      nombre_demandes: 23,
+      dernier_contact: '2024-11-15',
+    },
+    {
+      id: '2',
+      raison_sociale: 'Groupe CIMAO',
+      type_client: 'ENTREPRISE',
+      ville: 'Yaoundé',
+      telephone: '+237 222 20 30 40',
+      email: 'info@cimao.cm',
+      est_actif: true,
+      nombre_demandes: 18,
+      dernier_contact: '2024-11-10',
+    },
+    {
+      id: '3',
+      raison_sociale: 'BTP Construction',
+      type_client: 'ENTREPRISE',
+      ville: 'Douala',
+      telephone: '+237 233 45 67 89',
+      email: 'commercial@btp-construction.cm',
+      est_actif: true,
+      nombre_demandes: 15,
+      dernier_contact: '2024-11-20',
+    },
+    {
+      id: '4',
+      raison_sociale: 'Société MATERIAUXCI',
+      type_client: 'ENTREPRISE',
+      ville: 'Limbé',
+      telephone: '+237 233 33 44 55',
+      email: 'contact@materiauxci.cm',
+      est_actif: true,
+      nombre_demandes: 12,
+      dernier_contact: '2024-11-18',
+    },
+    {
+      id: '5',
+      raison_sociale: 'INFRASTRUCTURES SA',
+      type_client: 'INSTITUTION',
+      ville: 'Yaoundé',
+      telephone: '+237 222 11 22 33',
+      email: 'contact@infrastructures.gov.cm',
+      est_actif: true,
+      nombre_demandes: 9,
+      dernier_contact: '2024-11-05',
+    },
+  ]
+
+  const filteredClients = clients.filter(client => {
+    const matchesSearch = client.raison_sociale.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         client.ville.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesType = filterType === 'TOUS' || client.type_client === filterType
+    return matchesSearch && matchesType
+  })
+
+  return (
+    <div className="space-y-6">
+      {/* En-tête */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Gestion des clients</h1>
+          <p className="text-sm text-slate-600 mt-1">Gérez les clients et leurs demandes d'analyse</p>
+        </div>
+        <button className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-lanema-blue-600 hover:bg-lanema-blue-700 rounded-lg shadow-md transition">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Nouveau client
+        </button>
+      </div>
+
+      {/* Statistiques rapides */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">Total clients</div>
+          <div className="text-2xl font-semibold text-slate-900">{clients.length}</div>
+        </div>
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">Clients actifs</div>
+          <div className="text-2xl font-semibold text-emerald-600">
+            {clients.filter(c => c.est_actif).length}
+          </div>
+        </div>
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">Demandes ce mois</div>
+          <div className="text-2xl font-semibold text-lanema-blue-600">77</div>
+        </div>
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">En attente</div>
+          <div className="text-2xl font-semibold text-amber-600">12</div>
+        </div>
+      </div>
+
+      {/* Filtres et recherche */}
+      <div className="lanema-card p-4">
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex-1">
+            <input
+              type="text"
+              placeholder="Rechercher un client..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500"
+            />
+          </div>
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500"
+          >
+            <option value="TOUS">Tous les types</option>
+            <option value="ENTREPRISE">Entreprise</option>
+            <option value="INSTITUTION">Institution</option>
+            <option value="PARTICULIER">Particulier</option>
+            <option value="ONG">ONG</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Liste des clients */}
+      <div className="lanema-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Client
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Type
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Localisation
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Contact
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Demandes
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Statut
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredClients.map((client) => (
+                <tr key={client.id} className="hover:bg-slate-50 transition">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-lanema-blue-50 flex items-center justify-center">
+                        <span className="text-sm font-semibold text-lanema-blue-600">
+                          {client.raison_sociale.charAt(0)}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-slate-900">{client.raison_sociale}</div>
+                        <div className="text-xs text-slate-500">Dernier contact: {client.dernier_contact}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-700">
+                      {client.type_client}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="text-sm text-slate-700">{client.ville}</div>
+                    <div className="text-xs text-slate-500">Cameroun</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="text-sm text-slate-700">{client.telephone}</div>
+                    <div className="text-xs text-slate-500">{client.email}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="text-sm font-medium text-slate-900">{client.nombre_demandes}</div>
+                    <div className="text-xs text-slate-500">demandes</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
+                      client.est_actif
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {client.est_actif ? 'Actif' : 'Inactif'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button className="p-1.5 text-slate-600 hover:text-lanema-blue-600 hover:bg-lanema-blue-50 rounded transition">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      </button>
+                      <button className="p-1.5 text-slate-600 hover:text-lanema-blue-600 hover:bg-lanema-blue-50 rounded transition">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded transition">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-slate-600">
+          Affichage de <span className="font-medium">{filteredClients.length}</span> client(s)
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition disabled:opacity-50" disabled>
+            Précédent
+          </button>
+          <button className="px-3 py-1.5 text-sm font-medium bg-lanema-blue-600 text-white rounded">
+            1
+          </button>
+          <button className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition disabled:opacity-50" disabled>
+            Suivant
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,290 @@
+import { useState } from 'react'
+
+export function QualitePage() {
+  const [activeTab, setActiveTab] = useState<'nc' | 'actions'>('nc')
+
+  const nonConformites = [
+    {
+      id: '1',
+      numero: 'NC-2024-0089',
+      type: 'RESULTAT',
+      description: 'Écart important sur résistance à la compression',
+      essai: 'ESS-20241125-0278',
+      client: 'Groupe CIMAO',
+      gravite: 'MAJEURE',
+      statut: 'OUVERTE',
+      date_detection: '2024-11-25',
+      detecte_par: 'Paul KAMGA',
+    },
+    {
+      id: '2',
+      numero: 'NC-2024-0090',
+      type: 'METHODE',
+      description: 'Non-respect de la température d\'essai',
+      essai: 'ESS-20241126-0301',
+      client: 'SOCOCE',
+      gravite: 'MINEURE',
+      statut: 'EN_TRAITEMENT',
+      date_detection: '2024-11-26',
+      detecte_par: 'Marie NGOUO',
+    },
+    {
+      id: '3',
+      numero: 'NC-2024-0091',
+      type: 'EQUIPEMENT',
+      description: 'Dérive de l\'étalonnage de la balance',
+      essai: null,
+      client: null,
+      gravite: 'CRITIQUE',
+      statut: 'OUVERTE',
+      date_detection: '2024-11-28',
+      detecte_par: 'Jean MBIDA',
+    },
+    {
+      id: '4',
+      numero: 'NC-2024-0087',
+      type: 'RESULTAT',
+      description: 'Contamination microbiologique détectée',
+      essai: 'ESS-20241120-0234',
+      client: 'BTP Construction',
+      gravite: 'MAJEURE',
+      statut: 'CLOTUREE',
+      date_detection: '2024-11-20',
+      detecte_par: 'Sophie TCHUENTE',
+    },
+  ]
+
+  const actions = [
+    {
+      id: '1',
+      numero: 'AC-2024-0123',
+      nc_liee: 'NC-2024-0089',
+      description: 'Revoir le protocole d\'essai et refaire l\'analyse',
+      responsable: 'Paul KAMGA',
+      date_echeance: '2024-12-05',
+      statut: 'EN_COURS',
+      progression: 45,
+    },
+    {
+      id: '2',
+      numero: 'AC-2024-0124',
+      nc_liee: 'NC-2024-0090',
+      description: 'Formation rappel sur les conditions d\'essai',
+      responsable: 'Marie NGOUO',
+      date_echeance: '2024-12-01',
+      statut: 'EN_COURS',
+      progression: 75,
+    },
+    {
+      id: '3',
+      numero: 'AC-2024-0125',
+      nc_liee: 'NC-2024-0091',
+      description: 'Étalonnage urgent de la balance de précision',
+      responsable: 'Service métrologie',
+      date_echeance: '2024-11-30',
+      statut: 'PLANIFIEE',
+      progression: 0,
+    },
+    {
+      id: '4',
+      numero: 'AC-2024-0120',
+      nc_liee: 'NC-2024-0087',
+      description: 'Désinfection complète de la zone microbiologie',
+      responsable: 'Sophie TCHUENTE',
+      date_echeance: '2024-11-25',
+      statut: 'TERMINEE',
+      progression: 100,
+    },
+  ]
+
+  const graviteBadgeColor = (gravite: string) => {
+    const colors: Record<string, string> = {
+      'CRITIQUE': 'bg-rose-100 text-rose-800 border-rose-200',
+      'MAJEURE': 'bg-amber-100 text-amber-800 border-amber-200',
+      'MINEURE': 'bg-slate-100 text-slate-700 border-slate-200',
+    }
+    return colors[gravite] || 'bg-slate-100 text-slate-600 border-slate-200'
+  }
+
+  const statutBadgeColor = (statut: string) => {
+    const colors: Record<string, string> = {
+      'OUVERTE': 'bg-rose-50 text-rose-700',
+      'EN_TRAITEMENT': 'bg-amber-50 text-amber-700',
+      'CLOTUREE': 'bg-emerald-50 text-emerald-700',
+      'PLANIFIEE': 'bg-slate-100 text-slate-700',
+      'EN_COURS': 'bg-lanema-blue-50 text-lanema-blue-700',
+      'TERMINEE': 'bg-emerald-50 text-emerald-700',
+    }
+    return colors[statut] || 'bg-slate-100 text-slate-600'
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Gestion de la qualité</h1>
+          <p className="text-sm text-slate-600 mt-1">Non-conformités et actions correctives</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            Statistiques
+          </button>
+          <button className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-lanema-blue-600 hover:bg-lanema-blue-700 rounded-lg shadow-md transition">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Déclarer NC
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">NC ouvertes</div>
+          <div className="text-2xl font-semibold text-rose-600">
+            {nonConformites.filter(nc => nc.statut === 'OUVERTE').length}
+          </div>
+        </div>
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">En traitement</div>
+          <div className="text-2xl font-semibold text-amber-600">
+            {nonConformites.filter(nc => nc.statut === 'EN_TRAITEMENT').length}
+          </div>
+        </div>
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">Clôturées ce mois</div>
+          <div className="text-2xl font-semibold text-emerald-600">
+            {nonConformites.filter(nc => nc.statut === 'CLOTUREE').length}
+          </div>
+        </div>
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">Taux de conformité</div>
+          <div className="text-2xl font-semibold text-emerald-600">98.2%</div>
+        </div>
+      </div>
+
+      <div className="lanema-card">
+        <div className="border-b border-slate-200">
+          <div className="flex gap-4 px-6">
+            <button
+              onClick={() => setActiveTab('nc')}
+              className={`py-4 px-4 text-sm font-medium border-b-2 transition ${
+                activeTab === 'nc'
+                  ? 'border-lanema-blue-600 text-lanema-blue-600'
+                  : 'border-transparent text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Non-conformités ({nonConformites.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('actions')}
+              className={`py-4 px-4 text-sm font-medium border-b-2 transition ${
+                activeTab === 'actions'
+                  ? 'border-lanema-blue-600 text-lanema-blue-600'
+                  : 'border-transparent text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Actions correctives ({actions.length})
+            </button>
+          </div>
+        </div>
+
+        {activeTab === 'nc' && (
+          <div className="p-6 space-y-4">
+            {nonConformites.map((nc) => (
+              <div key={nc.id} className="lanema-card p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-12 h-12 rounded-lg bg-rose-50 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-slate-900">{nc.numero}</span>
+                        <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full border ${graviteBadgeColor(nc.gravite)}`}>
+                          {nc.gravite}
+                        </span>
+                      </div>
+                      <div className="text-sm text-slate-700 mb-2">{nc.description}</div>
+                      <div className="flex items-center gap-4 text-xs text-slate-500">
+                        <span>Type: {nc.type}</span>
+                        {nc.essai && <span>• {nc.essai}</span>}
+                        {nc.client && <span>• {nc.client}</span>}
+                        <span>• Détecté par {nc.detecte_par}</span>
+                        <span>• {nc.date_detection}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${statutBadgeColor(nc.statut)}`}>
+                    {nc.statut.replace('_', ' ')}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                  <div className="text-xs text-slate-500">
+                    {nc.statut === 'OUVERTE' && '⚠️ Nécessite une action'}
+                    {nc.statut === 'EN_TRAITEMENT' && '🔄 Action corrective en cours'}
+                    {nc.statut === 'CLOTUREE' && '✓ Traitée et vérifiée'}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button className="p-1.5 text-slate-600 hover:text-lanema-blue-600 hover:bg-lanema-blue-50 rounded transition">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    </button>
+                    <button className="p-1.5 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded transition">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'actions' && (
+          <div className="p-6 space-y-4">
+            {actions.map((action) => (
+              <div key={action.id} className="lanema-card p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-semibold text-slate-900">{action.numero}</span>
+                      <span className="text-xs text-slate-500">→ {action.nc_liee}</span>
+                    </div>
+                    <div className="text-sm text-slate-700 mb-2">{action.description}</div>
+                    <div className="flex items-center gap-4 text-xs text-slate-500">
+                      <span>👤 {action.responsable}</span>
+                      <span>• 📅 Échéance: {action.date_echeance}</span>
+                    </div>
+                  </div>
+                  <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${statutBadgeColor(action.statut)}`}>
+                    {action.statut.replace('_', ' ')}
+                  </span>
+                </div>
+                <div className="pt-3 border-t border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${action.progression === 100 ? 'bg-emerald-500' : 'bg-lanema-blue-500'} rounded-full transition-all`}
+                        style={{ width: `${action.progression}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-medium text-slate-600">{action.progression}%</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

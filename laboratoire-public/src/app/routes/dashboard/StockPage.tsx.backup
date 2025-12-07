@@ -1,0 +1,332 @@
+import { useState } from 'react'
+
+export function StockPage() {
+  const [searchTerm, setSearchTerm] = useState('')
+
+  const articles = [
+    {
+      id: '1',
+      reference: 'REA-CHEM-001',
+      designation: 'Acide chlorhydrique 37%',
+      categorie: 'CHIMIE',
+      type: 'REACTIF',
+      quantite_stock: 15,
+      unite: 'L',
+      seuil_alerte: 20,
+      date_peremption: '2025-06-30',
+      emplacement: 'Armoire chimique A2',
+      statut: 'STOCK_BAS',
+    },
+    {
+      id: '2',
+      reference: 'CONS-LAB-045',
+      designation: 'Gants nitrile (boîte de 100)',
+      categorie: 'CONSOMMABLE',
+      type: 'EPI',
+      quantite_stock: 45,
+      unite: 'BOITE',
+      seuil_alerte: 20,
+      date_peremption: null,
+      emplacement: 'Magasin - Étagère 3',
+      statut: 'OK',
+    },
+    {
+      id: '3',
+      reference: 'REA-CHEM-023',
+      designation: 'Hydroxyde de sodium',
+      categorie: 'CHIMIE',
+      type: 'REACTIF',
+      quantite_stock: 3,
+      unite: 'KG',
+      seuil_alerte: 10,
+      date_peremption: '2024-12-31',
+      emplacement: 'Armoire chimique A1',
+      statut: 'PEREMPTION_PROCHE',
+    },
+    {
+      id: '4',
+      reference: 'CONS-LAB-089',
+      designation: 'Papier filtre Whatman',
+      categorie: 'CONSOMMABLE',
+      type: 'CONSOMMABLE',
+      quantite_stock: 120,
+      unite: 'PAQUET',
+      seuil_alerte: 50,
+      date_peremption: null,
+      emplacement: 'Magasin - Zone B',
+      statut: 'OK',
+    },
+    {
+      id: '5',
+      reference: 'REA-MICRO-012',
+      designation: 'Milieu de culture PCA',
+      categorie: 'MICROBIOLOGIE',
+      type: 'REACTIF',
+      quantite_stock: 0,
+      unite: 'G',
+      seuil_alerte: 500,
+      date_peremption: '2025-03-15',
+      emplacement: 'Frigo microbiologie',
+      statut: 'RUPTURE',
+    },
+    {
+      id: '6',
+      reference: 'PIECE-EQP-034',
+      designation: 'Cellule de charge 100kN',
+      categorie: 'METROLOGIE',
+      type: 'PIECE',
+      quantite_stock: 2,
+      unite: 'UNITE',
+      seuil_alerte: 1,
+      date_peremption: null,
+      emplacement: 'Atelier métrologie',
+      statut: 'OK',
+    },
+  ]
+
+  const mouvements = [
+    {
+      id: '1',
+      type: 'SORTIE',
+      article: 'Acide chlorhydrique 37%',
+      quantite: 2,
+      unite: 'L',
+      utilisateur: 'Marie NGOUO',
+      motif: 'Essai ESS-20241129-0045',
+      date: '2024-11-29 10:30',
+    },
+    {
+      id: '2',
+      type: 'ENTREE',
+      article: 'Gants nitrile',
+      quantite: 10,
+      unite: 'BOITE',
+      utilisateur: 'Admin Stock',
+      motif: 'Réception commande BC-2024-156',
+      date: '2024-11-28 14:15',
+    },
+    {
+      id: '3',
+      type: 'SORTIE',
+      article: 'Papier filtre Whatman',
+      quantite: 5,
+      unite: 'PAQUET',
+      utilisateur: 'Jean MBIDA',
+      motif: 'Préparation échantillons',
+      date: '2024-11-27 09:00',
+    },
+  ]
+
+  const statutBadgeColor = (statut: string) => {
+    const colors: Record<string, string> = {
+      'OK': 'bg-emerald-50 text-emerald-700',
+      'STOCK_BAS': 'bg-amber-50 text-amber-700',
+      'RUPTURE': 'bg-rose-50 text-rose-700',
+      'PEREMPTION_PROCHE': 'bg-amber-50 text-amber-700',
+      'PERIME': 'bg-rose-50 text-rose-700',
+    }
+    return colors[statut] || 'bg-slate-100 text-slate-600'
+  }
+
+  const filteredArticles = articles.filter(art =>
+    art.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    art.designation.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Gestion du stock</h1>
+          <p className="text-sm text-slate-600 mt-1">Réactifs, consommables et pièces détachées</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            Inventaire
+          </button>
+          <button className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-lanema-blue-600 hover:bg-lanema-blue-700 rounded-lg shadow-md transition">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Nouvel article
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">Total articles</div>
+          <div className="text-2xl font-semibold text-slate-900">{articles.length}</div>
+        </div>
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">Stock bas</div>
+          <div className="text-2xl font-semibold text-amber-600">
+            {articles.filter(a => a.statut === 'STOCK_BAS').length}
+          </div>
+        </div>
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">Rupture</div>
+          <div className="text-2xl font-semibold text-rose-600">
+            {articles.filter(a => a.statut === 'RUPTURE').length}
+          </div>
+        </div>
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">Péremption proche</div>
+          <div className="text-2xl font-semibold text-amber-600">
+            {articles.filter(a => a.statut === 'PEREMPTION_PROCHE').length}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="lanema-card p-4">
+            <input
+              type="text"
+              placeholder="Rechercher un article..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500"
+            />
+          </div>
+
+          <div className="lanema-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Article</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Catégorie</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Stock</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Péremption</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Statut</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredArticles.map((art) => (
+                    <tr key={art.id} className="hover:bg-slate-50 transition">
+                      <td className="px-4 py-3">
+                        <div className="text-sm font-medium text-slate-900">{art.designation}</div>
+                        <div className="text-xs text-slate-500">{art.reference}</div>
+                        <div className="text-xs text-slate-400 mt-1">📍 {art.emplacement}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-700">
+                          {art.categorie}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className={`text-sm font-medium ${art.quantite_stock <= art.seuil_alerte ? 'text-amber-600' : 'text-slate-900'}`}>
+                          {art.quantite_stock} {art.unite}
+                        </div>
+                        <div className="text-xs text-slate-500">Seuil: {art.seuil_alerte}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm text-slate-700">{art.date_peremption || '-'}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${statutBadgeColor(art.statut)}`}>
+                          {art.statut.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button className="p-1.5 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded transition" title="Entrée">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                          </button>
+                          <button className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded transition" title="Sortie">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                            </svg>
+                          </button>
+                          <button className="p-1.5 text-slate-600 hover:text-lanema-blue-600 hover:bg-lanema-blue-50 rounded transition" title="Détails">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="lanema-card p-5">
+            <h2 className="text-base font-semibold text-slate-900 mb-4">Mouvements récents</h2>
+            <div className="space-y-3">
+              {mouvements.map((mouv) => (
+                <div key={mouv.id} className="p-3 rounded-lg bg-slate-50">
+                  <div className="flex items-start justify-between mb-2">
+                    <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
+                      mouv.type === 'ENTREE' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                    }`}>
+                      {mouv.type}
+                    </span>
+                    <span className="text-xs text-slate-500">{mouv.date}</span>
+                  </div>
+                  <div className="text-sm font-medium text-slate-900 mb-1">{mouv.article}</div>
+                  <div className="text-xs text-slate-600 mb-1">
+                    {mouv.quantite} {mouv.unite} • {mouv.utilisateur}
+                  </div>
+                  <div className="text-xs text-slate-500">{mouv.motif}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="lanema-card p-5">
+            <h2 className="text-base font-semibold text-slate-900 mb-4">Alertes stock</h2>
+            <div className="space-y-3">
+              <div className="p-3 rounded-lg bg-rose-50 border border-rose-100">
+                <div className="flex items-start gap-2">
+                  <svg className="w-4 h-4 text-rose-600 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <div>
+                    <div className="text-xs font-medium text-rose-900">Rupture de stock</div>
+                    <div className="text-xs text-rose-700 mt-1">1 article en rupture</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg bg-amber-50 border border-amber-100">
+                <div className="flex items-start gap-2">
+                  <svg className="w-4 h-4 text-amber-600 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <div className="text-xs font-medium text-amber-900">Stock bas</div>
+                    <div className="text-xs text-amber-700 mt-1">1 article sous le seuil</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg bg-amber-50 border border-amber-100">
+                <div className="flex items-start gap-2">
+                  <svg className="w-4 h-4 text-amber-600 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <div>
+                    <div className="text-xs font-medium text-amber-900">Péremption proche</div>
+                    <div className="text-xs text-amber-700 mt-1">1 article à périmer dans 1 mois</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

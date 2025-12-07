@@ -1,0 +1,317 @@
+import { useState } from 'react'
+
+export function FacturationPage() {
+  const [activeTab, setActiveTab] = useState<'devis' | 'factures'>('factures')
+
+  const factures = [
+    {
+      id: '1',
+      numero: 'FACT-2024-0156',
+      client: 'SOCOCE',
+      date_emission: '2024-11-25',
+      date_echeance: '2024-12-25',
+      montant_ht: 450000,
+      montant_ttc: 531000,
+      statut: 'PAYEE',
+      date_paiement: '2024-11-28',
+    },
+    {
+      id: '2',
+      numero: 'FACT-2024-0157',
+      client: 'Groupe CIMAO',
+      date_emission: '2024-11-26',
+      date_echeance: '2024-12-26',
+      montant_ht: 680000,
+      montant_ttc: 802400,
+      statut: 'EN_ATTENTE',
+      date_paiement: null,
+    },
+    {
+      id: '3',
+      numero: 'FACT-2024-0158',
+      client: 'BTP Construction',
+      date_emission: '2024-11-27',
+      date_echeance: '2024-12-27',
+      montant_ht: 320000,
+      montant_ttc: 377600,
+      statut: 'EN_ATTENTE',
+      date_paiement: null,
+    },
+    {
+      id: '4',
+      numero: 'FACT-2024-0154',
+      client: 'Société MATERIAUXCI',
+      date_emission: '2024-11-15',
+      date_echeance: '2024-12-15',
+      montant_ht: 550000,
+      montant_ttc: 649000,
+      statut: 'RETARD',
+      date_paiement: null,
+    },
+    {
+      id: '5',
+      numero: 'FACT-2024-0155',
+      client: 'INFRASTRUCTURES SA',
+      date_emission: '2024-11-20',
+      date_echeance: '2024-12-20',
+      montant_ht: 890000,
+      montant_ttc: 1050200,
+      statut: 'PAYEE',
+      date_paiement: '2024-11-22',
+    },
+  ]
+
+  const devis = [
+    {
+      id: '1',
+      numero: 'DEV-2024-0234',
+      client: 'SOCOCE',
+      date_emission: '2024-11-28',
+      montant_ht: 420000,
+      montant_ttc: 495600,
+      statut: 'EN_ATTENTE',
+      validite: '2024-12-28',
+    },
+    {
+      id: '2',
+      numero: 'DEV-2024-0235',
+      client: 'BTP Construction',
+      date_emission: '2024-11-29',
+      montant_ht: 750000,
+      montant_ttc: 885000,
+      statut: 'ACCEPTE',
+      validite: '2024-12-29',
+    },
+    {
+      id: '3',
+      numero: 'DEV-2024-0236',
+      client: 'Groupe CIMAO',
+      date_emission: '2024-11-29',
+      montant_ht: 320000,
+      montant_ttc: 377600,
+      statut: 'EN_ATTENTE',
+      validite: '2024-12-29',
+    },
+  ]
+
+  const formatMontant = (montant: number) => {
+    return new Intl.NumberFormat('fr-FR').format(montant) + ' XAF'
+  }
+
+  const statutBadgeColor = (statut: string) => {
+    const colors: Record<string, string> = {
+      'PAYEE': 'bg-emerald-50 text-emerald-700',
+      'EN_ATTENTE': 'bg-amber-50 text-amber-700',
+      'RETARD': 'bg-rose-50 text-rose-700',
+      'ANNULEE': 'bg-slate-100 text-slate-500',
+      'ACCEPTE': 'bg-emerald-50 text-emerald-700',
+      'REFUSE': 'bg-rose-50 text-rose-700',
+    }
+    return colors[statut] || 'bg-slate-100 text-slate-600'
+  }
+
+  const totalCA = factures
+    .filter(f => f.statut === 'PAYEE')
+    .reduce((sum, f) => sum + f.montant_ttc, 0)
+
+  const totalEnAttente = factures
+    .filter(f => f.statut === 'EN_ATTENTE')
+    .reduce((sum, f) => sum + f.montant_ttc, 0)
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Facturation & Devis</h1>
+          <p className="text-sm text-slate-600 mt-1">Gestion des devis, factures et paiements</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Enregistrer paiement
+          </button>
+          <button className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-lanema-blue-600 hover:bg-lanema-blue-700 rounded-lg shadow-md transition">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Nouveau devis
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">CA encaissé</div>
+          <div className="text-xl font-semibold text-emerald-600">{formatMontant(totalCA)}</div>
+        </div>
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">En attente</div>
+          <div className="text-xl font-semibold text-amber-600">{formatMontant(totalEnAttente)}</div>
+        </div>
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">Factures payées</div>
+          <div className="text-2xl font-semibold text-emerald-600">
+            {factures.filter(f => f.statut === 'PAYEE').length}
+          </div>
+        </div>
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">En retard</div>
+          <div className="text-2xl font-semibold text-rose-600">
+            {factures.filter(f => f.statut === 'RETARD').length}
+          </div>
+        </div>
+      </div>
+
+      <div className="lanema-card">
+        <div className="border-b border-slate-200">
+          <div className="flex gap-4 px-6">
+            <button
+              onClick={() => setActiveTab('factures')}
+              className={`py-4 px-4 text-sm font-medium border-b-2 transition ${
+                activeTab === 'factures'
+                  ? 'border-lanema-blue-600 text-lanema-blue-600'
+                  : 'border-transparent text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Factures ({factures.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('devis')}
+              className={`py-4 px-4 text-sm font-medium border-b-2 transition ${
+                activeTab === 'devis'
+                  ? 'border-lanema-blue-600 text-lanema-blue-600'
+                  : 'border-transparent text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Devis ({devis.length})
+            </button>
+          </div>
+        </div>
+
+        {activeTab === 'factures' && (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">N° Facture</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Client</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Date émission</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Échéance</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Montant TTC</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Statut</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {factures.map((facture) => (
+                  <tr key={facture.id} className="hover:bg-slate-50 transition">
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-slate-900">{facture.numero}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-slate-700">{facture.client}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-slate-700">{facture.date_emission}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-slate-700">{facture.date_echeance}</div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="text-sm font-medium text-slate-900">{formatMontant(facture.montant_ttc)}</div>
+                      <div className="text-xs text-slate-500">HT: {formatMontant(facture.montant_ht)}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${statutBadgeColor(facture.statut)}`}>
+                        {facture.statut.replace('_', ' ')}
+                      </span>
+                      {facture.date_paiement && (
+                        <div className="text-xs text-slate-500 mt-1">Payé le {facture.date_paiement}</div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button className="p-1.5 text-slate-600 hover:text-lanema-blue-600 hover:bg-lanema-blue-50 rounded transition" title="Télécharger PDF">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </button>
+                        <button className="p-1.5 text-slate-600 hover:text-lanema-blue-600 hover:bg-lanema-blue-50 rounded transition" title="Détails">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {activeTab === 'devis' && (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">N° Devis</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Client</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Date émission</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Validité</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Montant TTC</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Statut</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {devis.map((d) => (
+                  <tr key={d.id} className="hover:bg-slate-50 transition">
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-slate-900">{d.numero}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-slate-700">{d.client}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-slate-700">{d.date_emission}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-slate-700">{d.validite}</div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="text-sm font-medium text-slate-900">{formatMontant(d.montant_ttc)}</div>
+                      <div className="text-xs text-slate-500">HT: {formatMontant(d.montant_ht)}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${statutBadgeColor(d.statut)}`}>
+                        {d.statut.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button className="p-1.5 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded transition" title="Convertir en facture">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
+                        <button className="p-1.5 text-slate-600 hover:text-lanema-blue-600 hover:bg-lanema-blue-50 rounded transition" title="Télécharger PDF">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

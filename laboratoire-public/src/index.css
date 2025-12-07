@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Thème global LANEMA : fond clair, bleu en accent */
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  @apply bg-slate-50 text-slate-900 font-sans antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.lanema-gradient-header {
+  background: linear-gradient(90deg, #006bb3 0%, #0084e0 40%, #00a0e3 100%);
+}
+
+.lanema-card {
+  @apply bg-white rounded-xl shadow-soft-card border border-slate-100;
+}
+
+.lanema-badge {
+  @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-lanema-blue-50 text-lanema-blue-700;
+}
+
+.lanema-nav-link {
+  @apply flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg text-slate-600 hover:text-lanema-blue-700 hover:bg-lanema-blue-50 transition;
+}
+
+.lanema-nav-link-active {
+  @apply text-lanema-blue-700 bg-lanema-blue-50;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.3s ease-out;
+}
+
+.animate-slideDown {
+  animation: slideDown 0.3s ease-out;
+}

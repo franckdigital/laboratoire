@@ -1,0 +1,306 @@
+import { useState } from 'react'
+
+export function EchantillonsPage() {
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filterStatut, setFilterStatut] = useState('TOUS')
+
+  // Données de démonstration
+  const echantillons = [
+    {
+      id: '1',
+      code_echantillon: 'ECH-20241129-0001',
+      designation: 'Ciment Portland CEM II/B-L 32,5 N',
+      type: 'Ciment',
+      client: 'SOCOCE',
+      date_reception: '2024-11-29',
+      statut: 'EN_ANALYSE',
+      quantite: '25 kg',
+      emplacement: 'Salle A - Étagère 3',
+      priorite: 'NORMALE',
+    },
+    {
+      id: '2',
+      code_echantillon: 'ECH-20241128-0156',
+      designation: 'Béton prélevé sur chantier',
+      type: 'Béton',
+      client: 'BTP Construction',
+      date_reception: '2024-11-28',
+      statut: 'ANALYSE_TERMINEE',
+      quantite: '15 échantillons',
+      emplacement: 'Salle B - Zone 1',
+      priorite: 'HAUTE',
+    },
+    {
+      id: '3',
+      code_echantillon: 'ECH-20241127-0234',
+      designation: 'Granulats - Sable fin 0/2',
+      type: 'Granulats',
+      client: 'Société MATERIAUXCI',
+      date_reception: '2024-11-27',
+      statut: 'EN_ATTENTE',
+      quantite: '50 kg',
+      emplacement: 'Salle C - Zone 2',
+      priorite: 'NORMALE',
+    },
+    {
+      id: '4',
+      code_echantillon: 'ECH-20241126-0089',
+      designation: 'Acier de construction HA 12',
+      type: 'Acier',
+      client: 'Groupe CIMAO',
+      date_reception: '2024-11-26',
+      statut: 'RECEPTIONNE',
+      quantite: '10 barres',
+      emplacement: 'Salle A - Zone métallique',
+      priorite: 'BASSE',
+    },
+    {
+      id: '5',
+      code_echantillon: 'ECH-20241125-0198',
+      designation: 'Eau de chantier',
+      type: 'Eau',
+      client: 'INFRASTRUCTURES SA',
+      date_reception: '2024-11-25',
+      statut: 'ARCHIVE',
+      quantite: '5 litres',
+      emplacement: 'Archives - B12',
+      priorite: 'NORMALE',
+    },
+  ]
+
+  const statutBadgeColor = (statut: string) => {
+    switch (statut) {
+      case 'RECEPTIONNE':
+        return 'bg-slate-100 text-slate-700'
+      case 'EN_ATTENTE':
+        return 'bg-amber-50 text-amber-700'
+      case 'EN_ANALYSE':
+        return 'bg-lanema-blue-50 text-lanema-blue-700'
+      case 'ANALYSE_TERMINEE':
+        return 'bg-emerald-50 text-emerald-700'
+      case 'ARCHIVE':
+        return 'bg-slate-100 text-slate-500'
+      default:
+        return 'bg-slate-100 text-slate-600'
+    }
+  }
+
+  const prioriteBadgeColor = (priorite: string) => {
+    switch (priorite) {
+      case 'URGENTE':
+        return 'bg-rose-50 text-rose-700 border-rose-200'
+      case 'HAUTE':
+        return 'bg-amber-50 text-amber-700 border-amber-200'
+      case 'NORMALE':
+        return 'bg-slate-50 text-slate-700 border-slate-200'
+      case 'BASSE':
+        return 'bg-slate-50 text-slate-500 border-slate-100'
+      default:
+        return 'bg-slate-50 text-slate-600 border-slate-200'
+    }
+  }
+
+  const filteredEchantillons = echantillons.filter(ech => {
+    const matchesSearch = ech.code_echantillon.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         ech.designation.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         ech.client.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatut = filterStatut === 'TOUS' || ech.statut === filterStatut
+    return matchesSearch && matchesStatut
+  })
+
+  return (
+    <div className="space-y-6">
+      {/* En-tête */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Gestion des échantillons</h1>
+          <p className="text-sm text-slate-600 mt-1">Enregistrement, suivi et traçabilité complète</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+            </svg>
+            Scanner QR
+          </button>
+          <button className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-lanema-blue-600 hover:bg-lanema-blue-700 rounded-lg shadow-md transition">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Enregistrer échantillon
+          </button>
+        </div>
+      </div>
+
+      {/* Statistiques rapides */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">Total échantillons</div>
+          <div className="text-2xl font-semibold text-slate-900">{echantillons.length}</div>
+        </div>
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">Réceptionnés</div>
+          <div className="text-2xl font-semibold text-slate-600">
+            {echantillons.filter(e => e.statut === 'RECEPTIONNE').length}
+          </div>
+        </div>
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">En analyse</div>
+          <div className="text-2xl font-semibold text-lanema-blue-600">
+            {echantillons.filter(e => e.statut === 'EN_ANALYSE').length}
+          </div>
+        </div>
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">Terminés</div>
+          <div className="text-2xl font-semibold text-emerald-600">
+            {echantillons.filter(e => e.statut === 'ANALYSE_TERMINEE').length}
+          </div>
+        </div>
+        <div className="lanema-card p-4">
+          <div className="text-xs text-slate-500 mb-1">Archivés</div>
+          <div className="text-2xl font-semibold text-slate-400">
+            {echantillons.filter(e => e.statut === 'ARCHIVE').length}
+          </div>
+        </div>
+      </div>
+
+      {/* Filtres et recherche */}
+      <div className="lanema-card p-4">
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex-1">
+            <input
+              type="text"
+              placeholder="Rechercher par code, désignation ou client..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500"
+            />
+          </div>
+          <select
+            value={filterStatut}
+            onChange={(e) => setFilterStatut(e.target.value)}
+            className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500"
+          >
+            <option value="TOUS">Tous les statuts</option>
+            <option value="RECEPTIONNE">Réceptionné</option>
+            <option value="EN_ATTENTE">En attente</option>
+            <option value="EN_ANALYSE">En analyse</option>
+            <option value="ANALYSE_TERMINEE">Analyse terminée</option>
+            <option value="ARCHIVE">Archivé</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Liste des échantillons */}
+      <div className="lanema-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Code / Désignation
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Type
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Client
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Date réception
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Quantité
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Statut
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Priorité
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredEchantillons.map((ech) => (
+                <tr key={ech.id} className="hover:bg-slate-50 transition">
+                  <td className="px-4 py-3">
+                    <div>
+                      <div className="text-sm font-medium text-slate-900">{ech.code_echantillon}</div>
+                      <div className="text-xs text-slate-600">{ech.designation}</div>
+                      <div className="text-xs text-slate-400 mt-1">📍 {ech.emplacement}</div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-lanema-blue-50 text-lanema-blue-700">
+                      {ech.type}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="text-sm text-slate-700">{ech.client}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="text-sm text-slate-700">{ech.date_reception}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="text-sm text-slate-700">{ech.quantite}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${statutBadgeColor(ech.statut)}`}>
+                      {ech.statut.replace('_', ' ')}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full border ${prioriteBadgeColor(ech.priorite)}`}>
+                      {ech.priorite}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button className="p-1.5 text-slate-600 hover:text-lanema-blue-600 hover:bg-lanema-blue-50 rounded transition" title="Voir QR Code">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                        </svg>
+                      </button>
+                      <button className="p-1.5 text-slate-600 hover:text-lanema-blue-600 hover:bg-lanema-blue-50 rounded transition" title="Historique">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </button>
+                      <button className="p-1.5 text-slate-600 hover:text-lanema-blue-600 hover:bg-lanema-blue-50 rounded transition" title="Détails">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-slate-600">
+          Affichage de <span className="font-medium">{filteredEchantillons.length}</span> échantillon(s)
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition disabled:opacity-50" disabled>
+            Précédent
+          </button>
+          <button className="px-3 py-1.5 text-sm font-medium bg-lanema-blue-600 text-white rounded">
+            1
+          </button>
+          <button className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition disabled:opacity-50" disabled>
+            Suivant
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

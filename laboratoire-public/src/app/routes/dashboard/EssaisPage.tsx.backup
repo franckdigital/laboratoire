@@ -1,0 +1,232 @@
+import { useState } from 'react'
+
+export function EssaisPage() {
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filterStatut, setFilterStatut] = useState('TOUS')
+
+  const essais = [
+    {
+      id: '1',
+      numero_essai: 'ESS-20241129-0045',
+      type_essai: 'Résistance à la compression',
+      echantillon: 'ECH-20241129-0001',
+      client: 'SOCOCE',
+      technicien: 'Jean MBIDA',
+      statut: 'EN_COURS',
+      priorite: 'HAUTE',
+      date_debut: '2024-11-29',
+      date_echeance: '2024-12-02',
+      progression: 45,
+    },
+    {
+      id: '2',
+      numero_essai: 'ESS-20241128-0423',
+      type_essai: 'Analyse granulométrique',
+      echantillon: 'ECH-20241127-0234',
+      client: 'Société MATERIAUXCI',
+      technicien: 'Marie NGOUO',
+      statut: 'TERMINE',
+      priorite: 'NORMALE',
+      date_debut: '2024-11-28',
+      date_echeance: '2024-11-30',
+      progression: 100,
+    },
+    {
+      id: '3',
+      numero_essai: 'ESS-20241127-0389',
+      type_essai: 'Essai de traction',
+      echantillon: 'ECH-20241126-0089',
+      client: 'Groupe CIMAO',
+      technicien: null,
+      statut: 'EN_ATTENTE',
+      priorite: 'NORMALE',
+      date_debut: null,
+      date_echeance: '2024-12-05',
+      progression: 0,
+    },
+    {
+      id: '4',
+      numero_essai: 'ESS-20241126-0301',
+      type_essai: 'Analyse chimique',
+      echantillon: 'ECH-20241128-0156',
+      client: 'BTP Construction',
+      technicien: 'Paul KAMGA',
+      statut: 'VALIDE',
+      priorite: 'HAUTE',
+      date_debut: '2024-11-26',
+      date_echeance: '2024-11-29',
+      progression: 100,
+    },
+    {
+      id: '5',
+      numero_essai: 'ESS-20241125-0278',
+      type_essai: 'Qualité de l\'eau',
+      echantillon: 'ECH-20241125-0198',
+      client: 'INFRASTRUCTURES SA',
+      technicien: 'Sophie TCHUENTE',
+      statut: 'NON_CONFORME',
+      priorite: 'URGENTE',
+      date_debut: '2024-11-25',
+      date_echeance: '2024-11-27',
+      progression: 100,
+    },
+  ]
+
+  const statutBadgeColor = (statut: string) => {
+    const colors: Record<string, string> = {
+      'EN_ATTENTE': 'bg-slate-100 text-slate-700',
+      'ATTRIBUE': 'bg-amber-50 text-amber-700',
+      'EN_COURS': 'bg-lanema-blue-50 text-lanema-blue-700',
+      'TERMINE': 'bg-violet-50 text-violet-700',
+      'VALIDE': 'bg-emerald-50 text-emerald-700',
+      'NON_CONFORME': 'bg-rose-50 text-rose-700',
+      'ANNULE': 'bg-slate-100 text-slate-500',
+    }
+    return colors[statut] || 'bg-slate-100 text-slate-600'
+  }
+
+  const filteredEssais = essais.filter(essai => {
+    const matchesSearch = essai.numero_essai.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         essai.type_essai.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         essai.client.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatut = filterStatut === 'TOUS' || essai.statut === filterStatut
+    return matchesSearch && matchesStatut
+  })
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Gestion des essais</h1>
+          <p className="text-sm text-slate-600 mt-1">Planification, exécution et validation des analyses</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Planning
+          </button>
+          <button className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-lanema-blue-600 hover:bg-lanema-blue-700 rounded-lg shadow-md transition">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Nouvel essai
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {[
+          { label: 'En attente', value: essais.filter(e => e.statut === 'EN_ATTENTE').length, color: 'slate' },
+          { label: 'En cours', value: essais.filter(e => e.statut === 'EN_COURS').length, color: 'lanema-blue' },
+          { label: 'Terminés', value: essais.filter(e => e.statut === 'TERMINE').length, color: 'violet' },
+          { label: 'Validés', value: essais.filter(e => e.statut === 'VALIDE').length, color: 'emerald' },
+        ].map((stat, i) => (
+          <div key={i} className="lanema-card p-4">
+            <div className="text-xs text-slate-500 mb-1">{stat.label}</div>
+            <div className={`text-2xl font-semibold text-${stat.color}-600`}>{stat.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="lanema-card p-4">
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex-1">
+            <input
+              type="text"
+              placeholder="Rechercher un essai..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500"
+            />
+          </div>
+          <select
+            value={filterStatut}
+            onChange={(e) => setFilterStatut(e.target.value)}
+            className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500"
+          >
+            <option value="TOUS">Tous les statuts</option>
+            <option value="EN_ATTENTE">En attente</option>
+            <option value="EN_COURS">En cours</option>
+            <option value="TERMINE">Terminé</option>
+            <option value="VALIDE">Validé</option>
+            <option value="NON_CONFORME">Non conforme</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="lanema-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">N° Essai</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Type d'essai</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Client</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Technicien</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Progression</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Échéance</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Statut</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredEssais.map((essai) => (
+                <tr key={essai.id} className="hover:bg-slate-50 transition">
+                  <td className="px-4 py-3">
+                    <div className="text-sm font-medium text-slate-900">{essai.numero_essai}</div>
+                    <div className="text-xs text-slate-500">{essai.echantillon}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="text-sm text-slate-700">{essai.type_essai}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="text-sm text-slate-700">{essai.client}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="text-sm text-slate-700">{essai.technicien || 'Non attribué'}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full ${essai.statut === 'NON_CONFORME' ? 'bg-rose-500' : 'bg-lanema-blue-500'} rounded-full transition-all`}
+                          style={{ width: `${essai.progression}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-medium text-slate-600">{essai.progression}%</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="text-sm text-slate-700">{essai.date_echeance || '-'}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${statutBadgeColor(essai.statut)}`}>
+                      {essai.statut.replace('_', ' ')}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button className="p-1.5 text-slate-600 hover:text-lanema-blue-600 hover:bg-lanema-blue-50 rounded transition">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      </button>
+                      <button className="p-1.5 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded transition">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
