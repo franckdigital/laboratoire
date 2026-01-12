@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import api from '../../../services/api'
 
 export function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -13,6 +14,8 @@ export function RegisterPage() {
   })
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   
   const navigate = useNavigate()
 
@@ -33,34 +36,16 @@ export function RegisterPage() {
     setIsLoading(true)
 
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
-      
-      const response = await fetch(`${API_BASE_URL}/clients/auth/register/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          first_name: formData.raison_sociale.split(' ')[0] || '',
-          last_name: formData.raison_sociale.split(' ').slice(1).join(' ') || '',
-          phone: formData.telephone,
-          raison_sociale: formData.raison_sociale,
-          type_client: formData.type_client,
-          adresse: formData.adresse,
-          telephone: formData.telephone,
-        })
+      await api.auth.register({
+        email: formData.email,
+        password: formData.password,
+        raison_sociale: formData.raison_sociale,
+        type_subscription: formData.type_client,
+        adresse: formData.adresse,
+        telephone: formData.telephone,
       })
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || errorData.email?.[0] || 'Erreur lors de l\'inscription')
-      }
-
-      const data = await response.json()
-      console.log('Registration successful:', data)
-      
-      alert('Compte créé avec succès ! Vous pouvez maintenant vous connecter.')
-      navigate('/login')
+      navigate('/login', { replace: true })
     } catch (err: any) {
       setError(err.message || 'Une erreur est survenue lors de la création du compte')
     } finally {
@@ -83,7 +68,7 @@ export function RegisterPage() {
           <div className="w-16 h-16 rounded-xl bg-lanema-blue-600 flex items-center justify-center mx-auto mb-4 shadow-lg">
             <span className="text-2xl font-bold text-white">L</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 mb-2">Créer un compte LANEMA</h1>
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">Créer un compte LAB MANAGER</h1>
           <p className="text-sm text-slate-600">Remplissez le formulaire pour accéder à nos services</p>
         </div>
 
@@ -183,16 +168,35 @@ export function RegisterPage() {
                 <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
                   Mot de passe *
                 </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500 focus:border-transparent transition"
-                  placeholder="••••••••"
-                />
+                <div className="relative">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                    className="w-full pr-12 px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500 focus:border-transparent transition"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((s) => !s)}
+                    className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-500 hover:text-slate-700"
+                    aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                  >
+                    {showPassword ? (
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9.27-3.11-11-7.5a11.62 11.62 0 012.37-3.57m3.2-2.35A10.05 10.05 0 0112 5c5 0 9.27 3.11 11 7.5a11.62 11.62 0 01-4.14 5.04M9.88 9.88A3 3 0 0012 15a3 3 0 002.12-.88M3 3l18 18" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
                 <p className="text-xs text-slate-500 mt-1">Minimum 8 caractères</p>
               </div>
 
@@ -200,16 +204,35 @@ export function RegisterPage() {
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-2">
                   Confirmer le mot de passe *
                 </label>
-                <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500 focus:border-transparent transition"
-                  placeholder="••••••••"
-                />
+                <div className="relative">
+                  <input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    required
+                    className="w-full pr-12 px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500 focus:border-transparent transition"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((s) => !s)}
+                    className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-500 hover:text-slate-700"
+                    aria-label={showConfirmPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                  >
+                    {showConfirmPassword ? (
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9.27-3.11-11-7.5a11.62 11.62 0 012.37-3.57m3.2-2.35A10.05 10.05 0 0112 5c5 0 9.27 3.11 11 7.5a11.62 11.62 0 01-4.14 5.04M9.88 9.88A3 3 0 0012 15a3 3 0 002.12-.88M3 3l18 18" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -228,7 +251,7 @@ export function RegisterPage() {
                 className="w-4 h-4 mt-0.5 text-lanema-blue-600 border-slate-300 rounded focus:ring-lanema-blue-500"
               />
               <label className="text-xs text-slate-600">
-                J'accepte les <Link to="/terms" className="text-lanema-blue-600 hover:underline">conditions d'utilisation</Link> et la <Link to="/privacy" className="text-lanema-blue-600 hover:underline">politique de confidentialité</Link> de LANEMA
+                J'accepte les <Link to="/terms" className="text-lanema-blue-600 hover:underline">conditions d'utilisation</Link> et la <Link to="/privacy" className="text-lanema-blue-600 hover:underline">politique de confidentialité</Link> de LAB MANAGER
               </label>
             </div>
 

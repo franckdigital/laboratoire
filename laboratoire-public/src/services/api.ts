@@ -60,6 +60,48 @@ export const authAPI = {
     return handleResponse(response)
   },
 
+  async forgotPassword(email: string) {
+    const response = await fetch(`${API_BASE_URL}/clients/auth/password-reset/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    })
+    return handleResponse(response)
+  },
+
+  async resetPassword(params: { uid: string; token: string; new_password: string }) {
+    const response = await fetch(`${API_BASE_URL}/clients/auth/password-reset/confirm/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params)
+    })
+    return handleResponse(response)
+  },
+
+  async telechargerPDF(id: string) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/facturation/factures/${id}/telecharger_pdf/`, {
+        headers: getAuthHeaders()
+      })
+
+      if (!response.ok) {
+        throw new Error('Erreur lors du téléchargement de la facture')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Facture_${id}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Erreur téléchargement facture PDF:', error)
+      throw error
+    }
+  },
+
   async register(data: {
     email: string
     password: string
@@ -79,6 +121,24 @@ export const authAPI = {
   async getProfile() {
     const response = await fetch(`${API_BASE_URL}/clients/auth/profile/`, {
       headers: getAuthHeaders()
+    })
+    return handleResponse(response)
+  },
+
+  async updateProfile(data: any) {
+    const response = await fetch(`${API_BASE_URL}/clients/auth/profile/`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data)
+    })
+    return handleResponse(response)
+  },
+
+  async changePassword(params: { current_password: string; new_password: string }) {
+    const response = await fetch(`${API_BASE_URL}/clients/auth/password-change/`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(params)
     })
     return handleResponse(response)
   },
@@ -153,7 +213,8 @@ export const devisAPI = {
 
   async stats() {
     const response = await fetch(`${API_BASE_URL}/demandes/dashboard/stats/`, {
-      headers: getAuthHeaders()
+      headers: getAuthHeaders(),
+      cache: 'no-store'
     })
     return handleResponse(response)
   }
@@ -187,21 +248,21 @@ export const demandesAPI = {
 export const echantillonsAPI = {
   async list(params?: Record<string, string>) {
     const queryString = params ? '?' + new URLSearchParams(params).toString() : ''
-    const response = await fetch(`${API_BASE_URL}/echantillons/echantillons/${queryString}`, {
+    const response = await fetch(`${API_BASE_URL}/qualite/echantillons/${queryString}`, {
       headers: getAuthHeaders()
     })
     return handleResponse(response)
   },
 
   async get(id: string) {
-    const response = await fetch(`${API_BASE_URL}/echantillons/echantillons/${id}/`, {
+    const response = await fetch(`${API_BASE_URL}/qualite/echantillons/${id}/`, {
       headers: getAuthHeaders()
     })
     return handleResponse(response)
   },
 
   async create(data: any) {
-    const response = await fetch(`${API_BASE_URL}/echantillons/echantillons/`, {
+    const response = await fetch(`${API_BASE_URL}/qualite/echantillons/`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data)
@@ -210,13 +271,13 @@ export const echantillonsAPI = {
   },
 
   async update(id: string, data: any) {
-    const response = await fetch(`${API_BASE_URL}/echantillons/echantillons/${id}/`, {
+    const response = await fetch(`${API_BASE_URL}/qualite/echantillons/${id}/`, {
       method: 'PATCH',
       headers: getAuthHeaders(),
       body: JSON.stringify(data)
     })
     return handleResponse(response)
-  }
+  },
 }
 
 // ============================================
@@ -226,21 +287,21 @@ export const echantillonsAPI = {
 export const essaisAPI = {
   async list(params?: Record<string, string>) {
     const queryString = params ? '?' + new URLSearchParams(params).toString() : ''
-    const response = await fetch(`${API_BASE_URL}/essais/essais/${queryString}`, {
+    const response = await fetch(`${API_BASE_URL}/qualite/essais/${queryString}`, {
       headers: getAuthHeaders()
     })
     return handleResponse(response)
   },
 
   async get(id: string) {
-    const response = await fetch(`${API_BASE_URL}/essais/essais/${id}/`, {
+    const response = await fetch(`${API_BASE_URL}/qualite/essais/${id}/`, {
       headers: getAuthHeaders()
     })
     return handleResponse(response)
   },
 
   async create(data: any) {
-    const response = await fetch(`${API_BASE_URL}/essais/essais/`, {
+    const response = await fetch(`${API_BASE_URL}/qualite/essais/`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data)
@@ -249,7 +310,7 @@ export const essaisAPI = {
   },
 
   async update(id: string, data: any) {
-    const response = await fetch(`${API_BASE_URL}/essais/essais/${id}/`, {
+    const response = await fetch(`${API_BASE_URL}/qualite/essais/${id}/`, {
       method: 'PATCH',
       headers: getAuthHeaders(),
       body: JSON.stringify(data)
@@ -278,11 +339,29 @@ export const facturesAPI = {
     return handleResponse(response)
   },
 
-  async pay(id: string, data: any) {
+  async pay(id: string, params: { mode_paiement: 'CHEQUE' | 'COMPTANT', justificatif: File, reference?: string }) {
+    const token = localStorage.getItem('lanema_token')
+    const formData = new FormData()
+    formData.append('mode_paiement', params.mode_paiement)
+    formData.append('justificatif_paiement', params.justificatif)
+    if (params.reference) {
+      formData.append('reference_paiement', params.reference)
+    }
+
     const response = await fetch(`${API_BASE_URL}/facturation/factures/${id}/payer/`, {
       method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(data)
+      headers: {
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      },
+      body: formData
+    })
+    return handleResponse(response)
+  },
+
+  async validerPaiement(id: string) {
+    const response = await fetch(`${API_BASE_URL}/facturation/factures/${id}/valider_paiement/`, {
+      method: 'POST',
+      headers: getAuthHeaders()
     })
     return handleResponse(response)
   },
@@ -310,6 +389,43 @@ export const facturesAPI = {
       body: JSON.stringify(data)
     })
     return handleResponse(response)
+  },
+
+  async telechargerPDF(id: string) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/facturation/factures/${id}/telecharger_pdf/`, {
+        headers: getAuthHeaders()
+      })
+
+      if (!response.ok) {
+        throw new Error('Erreur lors du téléchargement du PDF')
+      }
+
+      // Récupérer le JSON avec le PDF en base64
+      const data = await response.json()
+      
+      // Décoder le base64 et créer un blob
+      const byteCharacters = atob(data.pdf_base64)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray], { type: 'application/pdf' })
+      
+      // Créer un lien de téléchargement
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = data.filename || `facture_${id}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Erreur téléchargement PDF:', error)
+      throw error
+    }
   }
 }
 
@@ -834,6 +950,204 @@ export const stockAPI = {
       })
       return handleResponse(response)
     }
+  },
+
+  // Sorties de stock
+  sorties: {
+    async list(params?: Record<string, string>) {
+      const queryString = params ? '?' + new URLSearchParams(params).toString() : ''
+      const response = await fetch(`${API_BASE_URL}/stock/sorties/${queryString}`, {
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    },
+
+    async get(id: string) {
+      const response = await fetch(`${API_BASE_URL}/stock/sorties/${id}/`, {
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    },
+
+    async create(data: any) {
+      const response = await fetch(`${API_BASE_URL}/stock/sorties/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data)
+      })
+      return handleResponse(response)
+    },
+
+    async valider(id: string) {
+      const response = await fetch(`${API_BASE_URL}/stock/sorties/${id}/valider/`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    },
+
+    async annuler(id: string, motif: string) {
+      const response = await fetch(`${API_BASE_URL}/stock/sorties/${id}/annuler/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ motif })
+      })
+      return handleResponse(response)
+    }
+  },
+
+  // Mouvements de stock (Traçabilité)
+  mouvementsStock: {
+    async list(params?: Record<string, string>) {
+      const queryString = params ? '?' + new URLSearchParams(params).toString() : ''
+      const response = await fetch(`${API_BASE_URL}/stock/mouvements/${queryString}`, {
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    },
+
+    async get(id: string) {
+      const response = await fetch(`${API_BASE_URL}/stock/mouvements/${id}/`, {
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    },
+
+    async parArticle(articleId: string) {
+      const response = await fetch(`${API_BASE_URL}/stock/mouvements/par_article/?article=${articleId}`, {
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    },
+
+    async parLot(lotId: string) {
+      const response = await fetch(`${API_BASE_URL}/stock/mouvements/par_lot/?lot=${lotId}`, {
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    },
+
+    async tracabiliteComplete(lotId: string) {
+      const response = await fetch(`${API_BASE_URL}/stock/mouvements/tracabilite_complete/?lot=${lotId}`, {
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    }
+  },
+
+  // Inventaires
+  inventaires: {
+    async list(params?: Record<string, string>) {
+      const queryString = params ? '?' + new URLSearchParams(params).toString() : ''
+      const response = await fetch(`${API_BASE_URL}/stock/inventaires/${queryString}`, {
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    },
+
+    async get(id: string) {
+      const response = await fetch(`${API_BASE_URL}/stock/inventaires/${id}/`, {
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    },
+
+    async create(data: any) {
+      const response = await fetch(`${API_BASE_URL}/stock/inventaires/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data)
+      })
+      return handleResponse(response)
+    },
+
+    async demarrer(id: string) {
+      const response = await fetch(`${API_BASE_URL}/stock/inventaires/${id}/demarrer/`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    },
+
+    async terminer(id: string) {
+      const response = await fetch(`${API_BASE_URL}/stock/inventaires/${id}/terminer/`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    },
+
+    async valider(id: string) {
+      const response = await fetch(`${API_BASE_URL}/stock/inventaires/${id}/valider/`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    },
+
+    async annuler(id: string) {
+      const response = await fetch(`${API_BASE_URL}/stock/inventaires/${id}/annuler/`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    },
+
+    async lignes(id: string) {
+      const response = await fetch(`${API_BASE_URL}/stock/inventaires/${id}/lignes/`, {
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    },
+
+    async compterLigne(id: string, ligneId: string, quantiteComptee: number, commentaire?: string) {
+      const response = await fetch(`${API_BASE_URL}/stock/inventaires/${id}/compter_ligne/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ ligne_id: ligneId, quantite_comptee: quantiteComptee, commentaire })
+      })
+      return handleResponse(response)
+    },
+
+    async resume(id: string) {
+      const response = await fetch(`${API_BASE_URL}/stock/inventaires/${id}/resume/`, {
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    }
+  },
+
+  // Statistiques
+  statistiques: {
+    async stock() {
+      const response = await fetch(`${API_BASE_URL}/stock/statistiques/stock/`, {
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    },
+
+    async mouvements(params?: Record<string, string>) {
+      const queryString = params ? '?' + new URLSearchParams(params).toString() : ''
+      const response = await fetch(`${API_BASE_URL}/stock/statistiques/mouvements/${queryString}`, {
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    },
+
+    async sorties(params?: Record<string, string>) {
+      const queryString = params ? '?' + new URLSearchParams(params).toString() : ''
+      const response = await fetch(`${API_BASE_URL}/stock/statistiques/sorties/${queryString}`, {
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    },
+
+    async tableauBordComplet() {
+      const response = await fetch(`${API_BASE_URL}/stock/dashboard/complet/`, {
+        headers: getAuthHeaders()
+      })
+      return handleResponse(response)
+    }
   }
 }
 
@@ -904,6 +1218,24 @@ export const qualiteAPI = {
     return handleResponse(response)
   },
 
+  async update(id: number, data: any) {
+    const response = await fetch(`${API_BASE_URL}/qualite/non-conformites/${id}/`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data)
+    })
+    return handleResponse(response)
+  },
+
+  async delete(id: number) {
+    const response = await fetch(`${API_BASE_URL}/qualite/non-conformites/${id}/`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    })
+    if (!response.ok) throw new Error('Erreur lors de la suppression')
+    return true
+  },
+
   async audits(params?: Record<string, string>) {
     const queryString = params ? '?' + new URLSearchParams(params).toString() : ''
     const response = await fetch(`${API_BASE_URL}/qualite/audits/${queryString}`, {
@@ -958,12 +1290,13 @@ export const notificationsAPI = {
   async list(params?: Record<string, string>) {
     const queryString = params ? '?' + new URLSearchParams(params).toString() : ''
     const response = await fetch(`${API_BASE_URL}/notifications/notifications/${queryString}`, {
-      headers: getAuthHeaders()
+      headers: getAuthHeaders(),
+      cache: 'no-store'
     })
     return handleResponse(response)
   },
 
-  async markAsRead(id: string) {
+  async markAsRead(id: number) {
     const response = await fetch(`${API_BASE_URL}/notifications/notifications/${id}/lire/`, {
       method: 'POST',
       headers: getAuthHeaders()
@@ -984,6 +1317,23 @@ export const notificationsAPI = {
       headers: getAuthHeaders()
     })
     return handleResponse(response)
+  },
+
+  async stats() {
+    const response = await fetch(`${API_BASE_URL}/notifications/notifications/stats/`, {
+      headers: getAuthHeaders(),
+      cache: 'no-store'
+    })
+    return handleResponse(response)
+  },
+
+  async delete(id: number) {
+    const response = await fetch(`${API_BASE_URL}/notifications/notifications/${id}/`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    })
+    if (!response.ok) throw new Error('Erreur lors de la suppression')
+    return true
   }
 }
 
@@ -1070,21 +1420,25 @@ export const proformaAPI = {
   async telechargerPDF(id: string) {
     try {
       const response = await fetch(`${API_BASE_URL}/facturation/proformas/${id}/telecharger_pdf/`, {
-        headers: getAuthHeaders()
+        method: 'GET',
+        headers: getAuthHeaders(),
       })
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('Erreur PDF:', response.status, errorText)
-        throw new Error(`Erreur ${response.status}: ${errorText || 'Impossible de télécharger le PDF'}`)
+
+      const data: { filename: string; content: string } = await handleResponse(response)
+
+      // Décoder le contenu base64 renvoyé par l'API
+      const byteCharacters = atob(data.content)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
       }
-      
-      // Télécharger le fichier
-      const blob = await response.blob()
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray], { type: 'application/pdf' })
+
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `Proforma_${id}.pdf`
+      a.download = data.filename || `Proforma_${id}.pdf`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -1174,12 +1528,46 @@ export const demandeAnalyseAPI = {
       body: JSON.stringify({ observations: observations || '' })
     })
     return handleResponse(response)
+  },
+
+  async telechargerRapport(id: string) {
+    try {
+      const url = `${API_BASE_URL}/facturation/demandes-analyses/${id}/telecharger_rapport/`
+
+      // On utilise handleResponse pour récupérer un JSON { filename, content }
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      })
+      const data: { filename: string; content: string } = await handleResponse(response)
+
+      // Décoder le contenu base64 renvoyé par l'API
+      const byteCharacters = atob(data.content)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray], { type: 'application/pdf' })
+
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = downloadUrl
+      a.download = data.filename || `Rapport_${id}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(downloadUrl)
+      document.body.removeChild(a)
+    } catch (error) {
+      console.error('Erreur téléchargement rapport analyse:', error)
+      throw error
+    }
   }
 }
 
 export const adminUsersAPI = {
   async list() {
-    const response = await fetch(`${API_BASE_URL}/auth/admin/users/`, {
+    const response = await fetch(`${API_BASE_URL}/clients/clients/`, {
       headers: getAuthHeaders()
     })
     const data = await handleResponse(response)
@@ -1195,7 +1583,7 @@ export const adminUsersAPI = {
     role: string
     password: string
   }) {
-    const response = await fetch(`${API_BASE_URL}/auth/admin/users/create/`, {
+    const response = await fetch(`${API_BASE_URL}/clients/clients/`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data)
@@ -1211,7 +1599,7 @@ export const adminUsersAPI = {
     role?: string
     password?: string
   }) {
-    const response = await fetch(`${API_BASE_URL}/auth/admin/users/${userId}/update/`, {
+    const response = await fetch(`${API_BASE_URL}/clients/clients/${userId}/`, {
       method: 'PATCH',
       headers: getAuthHeaders(),
       body: JSON.stringify(data)
@@ -1220,7 +1608,7 @@ export const adminUsersAPI = {
   },
 
   async delete(userId: string) {
-    const response = await fetch(`${API_BASE_URL}/auth/admin/users/${userId}/delete/`, {
+    const response = await fetch(`${API_BASE_URL}/clients/clients/${userId}/`, {
       method: 'DELETE',
       headers: getAuthHeaders()
     })
@@ -1271,6 +1659,7 @@ export default {
   qualite: qualiteAPI,
   reporting: reportingAPI,
   notifications: notificationsAPI,
+  clients: clientsAdminAPI,
   clientsAdmin: clientsAdminAPI,
   adminUsers: adminUsersAPI,
   dashboard: dashboardAPI,

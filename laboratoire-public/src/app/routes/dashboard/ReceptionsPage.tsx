@@ -8,12 +8,16 @@ interface Reception {
   numero_reception: string
   bon_commande?: string
   numero_bon_commande?: string
+  numero_commande?: string
+  numero_bl?: string
   fournisseur: string
   fournisseur_nom: string
   date_reception: string
+  date_livraison_prevue?: string
   date_verification?: string
   date_validation?: string
   statut: string
+  conforme?: boolean
   receptionne_par_nom: string
   verifie_par_nom?: string
   valide_par_nom?: string
@@ -92,6 +96,14 @@ export function ReceptionsPage() {
   const [isLoadingArticles, setIsLoadingArticles] = useState(false)
   const [lignesForm, setLignesForm] = useState<LigneReceptionForm[]>([])
   const [showAddLigneForm, setShowAddLigneForm] = useState(false)
+  const [showFournisseurModal, setShowFournisseurModal] = useState(false)
+  const [showFournisseursListModal, setShowFournisseursListModal] = useState(false)
+  const [fournisseurForm, setFournisseurForm] = useState({
+    nom: '',
+    email: '',
+    telephone: '',
+    adresse: ''
+  })
   const [newLigne, setNewLigne] = useState<LigneReceptionForm>({
     article: '',
     quantite_attendue: '',
@@ -116,11 +128,19 @@ export function ReceptionsPage() {
   const loadFournisseurs = async () => {
     try {
       setIsLoadingFournisseurs(true)
-      const data = await api.stock.fournisseurs.list()
+      const data = await api.clients.list({ role: 'FOURNISSEUR' })
       const items = (data.results || data || []) as FournisseurOption[]
       setFournisseurs(items)
     } catch (error: any) {
       console.error('Erreur lors du chargement des fournisseurs:', error)
+      // Fallback: charger tous les clients si le filtre ne fonctionne pas
+      try {
+        const allData = await api.clients.list()
+        const allItems = (allData.results || allData || []) as any[]
+        setFournisseurs(allItems.filter(item => item.role === 'FOURNISSEUR'))
+      } catch (e) {
+        console.error('Erreur fallback:', e)
+      }
     } finally {
       setIsLoadingFournisseurs(false)
     }
@@ -136,6 +156,34 @@ export function ReceptionsPage() {
       console.error('Erreur lors du chargement des articles:', error)
     } finally {
       setIsLoadingArticles(false)
+    }
+  }
+
+  const handleCreateFournisseur = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      await api.clients.create({
+        ...fournisseurForm,
+        role: 'FOURNISSEUR',
+        email: fournisseurForm.email || `fournisseur${Date.now()}@temp.cm`
+      })
+      setToast({ message: 'Fournisseur créé avec succès', type: 'success' })
+      setShowFournisseurModal(false)
+      setFournisseurForm({ nom: '', email: '', telephone: '', adresse: '' })
+      await loadFournisseurs()
+    } catch (error: any) {
+      setToast({ message: error.message || 'Erreur lors de la création du fournisseur', type: 'error' })
+    }
+  }
+
+  const handleDeleteFournisseur = async (id: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce fournisseur ?')) return
+    try {
+      await api.clients.delete(id)
+      setToast({ message: 'Fournisseur supprimé', type: 'success' })
+      await loadFournisseurs()
+    } catch (error: any) {
+      setToast({ message: error.message || 'Erreur lors de la suppression', type: 'error' })
     }
   }
 
@@ -195,16 +243,52 @@ export function ReceptionsPage() {
       'EN_COURS': 'bg-amber-100 text-amber-700',
       'VERIFIEE': 'bg-blue-100 text-blue-700',
       'VALIDEE': 'bg-emerald-100 text-emerald-700',
-      'REJETEE': 'bg-rose-100 text-rose-700'
+      'REJETEE': 'bg-rose-100 text-rose-700',
+      'CONFORME': 'bg-emerald-100 text-emerald-700',
+      'NON_CONFORME': 'bg-rose-100 text-rose-700',
+      'NON CONFORME': 'bg-rose-100 text-rose-700',
     }
     return colors[statut] || 'bg-gray-100 text-gray-600'
   }
+  
+  const getConformiteLabel = (reception: Reception) => {
+    // Si conforme est défini, l'utiliser pour afficher le statut de conformité
+    if (reception.conforme !== undefined) {
+      return reception.conforme ? 'CONFORME' : 'NON CONFORME'
+    }
+    return reception.statut || 'EN_COURS'
+  }
 
   const handleAddLigne = () => {
-    if (!newLigne.article || !newLigne.numero_lot) {
-      setToast({ message: 'Veuillez renseigner au minimum l\'article et le numéro de lot', type: 'error' })
+    // Validations
+    if (!newLigne.article) {
+      setToast({ message: 'Veuillez sélectionner un article', type: 'error' })
       return
     }
+    if (!newLigne.numero_lot) {
+      setToast({ message: 'Veuillez saisir le numéro de lot', type: 'error' })
+      return
+    }
+    if (!newLigne.quantite_recue || parseFloat(newLigne.quantite_recue) <= 0) {
+      setToast({ message: 'Veuillez saisir une quantité reçue valide', type: 'error' })
+      return
+    }
+    
+    // Validation: quantité reçue <= quantité attendue (si quantité attendue est renseignée)
+    if (newLigne.quantite_attendue && parseFloat(newLigne.quantite_recue) > parseFloat(newLigne.quantite_attendue)) {
+      if (!confirm('⚠️ La quantité reçue est supérieure à la quantité attendue. Voulez-vous continuer ?')) {
+        return
+      }
+    }
+    
+    // Validation: date de péremption > date de fabrication
+    if (newLigne.date_fabrication && newLigne.date_peremption) {
+      if (new Date(newLigne.date_peremption) <= new Date(newLigne.date_fabrication)) {
+        setToast({ message: 'La date de péremption doit être postérieure à la date de fabrication', type: 'error' })
+        return
+      }
+    }
+    
     setLignesForm([...lignesForm, { ...newLigne }])
     setNewLigne({
       article: '',
@@ -218,6 +302,7 @@ export function ReceptionsPage() {
       observations: ''
     })
     setShowAddLigneForm(false)
+    setToast({ message: 'Ligne ajoutée avec succès', type: 'success' })
   }
 
   const handleRemoveLigne = (index: number) => {
@@ -370,8 +455,8 @@ export function ReceptionsPage() {
                     <span className="text-sm font-medium text-sky-600">{reception.nombre_lignes}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs rounded-full ${getStatutColor(reception.statut)}`}>
-                      {reception.statut.replace('_', ' ')}
+                    <span className={`px-2 py-1 text-xs rounded-full ${getStatutColor(getConformiteLabel(reception))}`}>
+                      {getConformiteLabel(reception)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
@@ -433,8 +518,8 @@ export function ReceptionsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Statut</label>
-                <span className={`mt-1 inline-block px-2 py-1 text-xs rounded-full ${getStatutColor(selectedReceptionDetails.statut)}`}>
-                  {selectedReceptionDetails.statut.replace('_', ' ')}
+                <span className={`mt-1 inline-block px-2 py-1 text-xs rounded-full ${getStatutColor(selectedReceptionDetails.statut || 'CONFORME')}`}>
+                  {(selectedReceptionDetails.statut || 'CONFORME').replace('_', ' ')}
                 </span>
               </div>
               <div>
@@ -567,23 +652,46 @@ export function ReceptionsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fournisseur
+                  Fournisseur <span className="text-rose-500">*</span>
                 </label>
-                <select
-                  value={createForm.fournisseur}
-                  onChange={(e) => setCreateForm({ ...createForm, fournisseur: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500"
-                >
-                  <option value="">Sélectionner...</option>
-                  {isLoadingFournisseurs && (
-                    <option value="" disabled>Chargement...</option>
-                  )}
-                  {!isLoadingFournisseurs && fournisseurs.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.raison_sociale || f.nom || f.id}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex gap-2">
+                  <select
+                    value={createForm.fournisseur}
+                    onChange={(e) => setCreateForm({ ...createForm, fournisseur: e.target.value })}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500"
+                    required
+                  >
+                    <option value="">Sélectionner un fournisseur...</option>
+                    {isLoadingFournisseurs && (
+                      <option value="" disabled>Chargement...</option>
+                    )}
+                    {!isLoadingFournisseurs && fournisseurs.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.raison_sociale || f.nom || f.id}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowFournisseurModal(true)}
+                    className="px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                    title="Créer un nouveau fournisseur"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowFournisseursListModal(true)}
+                    className="px-3 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors"
+                    title="Gérer les fournisseurs"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -687,15 +795,27 @@ export function ReceptionsPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Quantité reçue
+                        Quantité reçue <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="number"
                         step="0.01"
                         value={newLigne.quantite_recue}
                         onChange={(e) => setNewLigne({ ...newLigne, quantite_recue: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500"
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 ${
+                          newLigne.quantite_attendue && newLigne.quantite_recue && 
+                          parseFloat(newLigne.quantite_recue) !== parseFloat(newLigne.quantite_attendue)
+                            ? 'border-amber-400 bg-amber-50'
+                            : 'border-gray-300'
+                        }`}
+                        required
                       />
+                      {newLigne.quantite_attendue && newLigne.quantite_recue && 
+                       parseFloat(newLigne.quantite_recue) !== parseFloat(newLigne.quantite_attendue) && (
+                        <p className="text-xs text-amber-600 mt-1">
+                          ⚠️ Différence avec la quantité attendue
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -909,10 +1029,176 @@ export function ReceptionsPage() {
         </Modal>
       )}
 
+      {/* Modal Création Fournisseur */}
+      {showFournisseurModal && (
+        <Modal
+          isOpen={showFournisseurModal}
+          onClose={() => {
+            setShowFournisseurModal(false)
+            setFournisseurForm({ nom: '', email: '', telephone: '', adresse: '' })
+          }}
+          title="Nouveau fournisseur"
+        >
+          <form onSubmit={handleCreateFournisseur} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nom du fournisseur <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={fournisseurForm.nom}
+                onChange={(e) => setFournisseurForm({ ...fournisseurForm, nom: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500"
+                placeholder="Ex: ChemSupply Cameroun"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                value={fournisseurForm.email}
+                onChange={(e) => setFournisseurForm({ ...fournisseurForm, email: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500"
+                placeholder="contact@fournisseur.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Téléphone
+              </label>
+              <input
+                type="tel"
+                value={fournisseurForm.telephone}
+                onChange={(e) => setFournisseurForm({ ...fournisseurForm, telephone: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500"
+                placeholder="+237 6XX XX XX XX"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Adresse
+              </label>
+              <textarea
+                value={fournisseurForm.adresse}
+                onChange={(e) => setFournisseurForm({ ...fournisseurForm, adresse: e.target.value })}
+                rows={2}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500"
+                placeholder="Adresse complète"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFournisseurModal(false)
+                  setFournisseurForm({ nom: '', email: '', telephone: '', adresse: '' })
+                }}
+                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+              >
+                Créer le fournisseur
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Modal Liste des Fournisseurs */}
+      {showFournisseursListModal && (
+        <Modal
+          isOpen={showFournisseursListModal}
+          onClose={() => setShowFournisseursListModal(false)}
+          title="Gestion des fournisseurs"
+        >
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-gray-600">
+                {fournisseurs.length} fournisseur{fournisseurs.length > 1 ? 's' : ''} enregistré{fournisseurs.length > 1 ? 's' : ''}
+              </p>
+              <button
+                onClick={() => {
+                  setShowFournisseursListModal(false)
+                  setShowFournisseurModal(true)
+                }}
+                className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+              >
+                + Nouveau
+              </button>
+            </div>
+
+            {isLoadingFournisseurs ? (
+              <div className="text-center py-8 text-gray-500">Chargement...</div>
+            ) : fournisseurs.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p className="mb-2">Aucun fournisseur enregistré</p>
+                <button
+                  onClick={() => {
+                    setShowFournisseursListModal(false)
+                    setShowFournisseurModal(true)
+                  }}
+                  className="text-sky-600 hover:text-sky-700 text-sm"
+                >
+                  Créer le premier fournisseur
+                </button>
+              </div>
+            ) : (
+              <div className="max-h-96 overflow-y-auto space-y-2">
+                {fournisseurs.map((fournisseur) => (
+                  <div
+                    key={fournisseur.id}
+                    className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900">
+                          {fournisseur.raison_sociale || fournisseur.nom}
+                        </h4>
+                        {fournisseur.email && (
+                          <p className="text-sm text-gray-600 mt-1">
+                            📧 {fournisseur.email}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleDeleteFournisseur(fournisseur.id)}
+                        className="ml-2 p-1.5 text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                        title="Supprimer"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex justify-end pt-4 border-t">
+              <button
+                onClick={() => setShowFournisseursListModal(false)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {toast && (
         <Toast
           message={toast.message}
           type={toast.type}
+          isVisible={true}
           onClose={() => setToast(null)}
         />
       )}

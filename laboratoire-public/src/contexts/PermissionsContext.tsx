@@ -15,17 +15,31 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const [permissions, setPermissions] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  const fetchPermissions = async () => {
+  const readCachedPermissions = () => {
+    try {
+      const raw = localStorage.getItem('lanema_permissions')
+      const parsed = raw ? JSON.parse(raw) : null
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+
+  const fetchPermissions = async (background: boolean = false) => {
     if (!isAuthenticated || !user) {
       setPermissions([])
       setIsLoading(false)
       return
     }
 
+    if (!background) {
+      setIsLoading(true)
+    }
+
     try {
       const token = localStorage.getItem('lanema_token')
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/user/permissions/`,
+        `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/clients/user/permissions/`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -42,9 +56,13 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         const permissionCodes = permissionsList
           .filter((rp: any) => rp.is_granted)
           .map((rp: any) => rp.permission_code)
-        
-        console.log('[PermissionsContext] Permissions chargées:', permissionCodes)
+
         setPermissions(permissionCodes)
+        try {
+          localStorage.setItem('lanema_permissions', JSON.stringify(permissionCodes))
+        } catch {
+          // ignore
+        }
       } else {
         console.error('Failed to fetch permissions')
         setPermissions([])
@@ -59,7 +77,14 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      fetchPermissions()
+      const cached = readCachedPermissions()
+      if (cached.length > 0) {
+        setPermissions(cached)
+        setIsLoading(false)
+        fetchPermissions(true)
+      } else {
+        fetchPermissions(false)
+      }
     } else {
       setPermissions([])
       setIsLoading(false)

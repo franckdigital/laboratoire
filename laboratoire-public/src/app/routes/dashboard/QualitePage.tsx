@@ -9,14 +9,9 @@ export function QualitePage() {
   const [filterStatut, setFilterStatut] = useState('TOUS')
   const [editingNC, setEditingNC] = useState<any>(null)
   const [formData, setFormData] = useState({
-    numero: '',
-    type: 'ESSAI',
+    type_nc: 'INTERNE',
     description: '',
-    gravite: 'MINEURE',
-    statut: 'OUVERTE',
-    date_detection: new Date().toISOString().split('T')[0],
-    origine: '',
-    action_corrective: ''
+    gravite: 'MINEURE'
   })
 
   useEffect(() => {
@@ -38,7 +33,11 @@ export function QualitePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await api.qualite.create(formData)
+      if (editingNC) {
+        await api.qualite.update(editingNC.id, formData)
+      } else {
+        await api.qualite.create(formData)
+      }
       setShowModal(false)
       setEditingNC(null)
       resetForm()
@@ -50,15 +49,30 @@ export function QualitePage() {
 
   const resetForm = () => {
     setFormData({
-      numero: '',
-      type: 'ESSAI',
+      type_nc: 'INTERNE',
       description: '',
-      gravite: 'MINEURE',
-      statut: 'OUVERTE',
-      date_detection: new Date().toISOString().split('T')[0],
-      origine: '',
-      action_corrective: ''
+      gravite: 'MINEURE'
     })
+  }
+
+  const handleEdit = (nc: any) => {
+    setEditingNC(nc)
+    setFormData({
+      type_nc: nc.type_nc || 'INTERNE',
+      description: nc.description || '',
+      gravite: nc.gravite || 'MINEURE'
+    })
+    setShowModal(true)
+  }
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette non-conformité ?')) return
+    try {
+      await api.qualite.delete(id)
+      loadNonConformites()
+    } catch (error) {
+      console.error('Erreur suppression:', error)
+    }
   }
 
   const statutBadgeColor = (statut: string) => {
@@ -153,17 +167,34 @@ export function QualitePage() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Gravité</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Date</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Statut</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((nc) => (
                   <tr key={nc.id} className="border-t border-slate-100 hover:bg-slate-50 transition">
                     <td className="px-4 py-3 text-sm font-medium text-slate-900">{nc.numero}</td>
-                    <td className="px-4 py-3 text-sm text-slate-600">{nc.type}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{nc.type_nc === 'INTERNE' ? 'Interne' : 'Externe'}</td>
                     <td className="px-4 py-3 text-sm text-slate-700 max-w-xs truncate">{nc.description}</td>
                     <td className="px-4 py-3 text-sm"><span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${graviteBadgeColor(nc.gravite)}`}>{nc.gravite}</span></td>
-                    <td className="px-4 py-3 text-sm text-slate-600">{nc.date_detection ? new Date(nc.date_detection).toLocaleDateString('fr-FR') : 'N/A'}</td>
-                    <td className="px-4 py-3 text-sm"><span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${statutBadgeColor(nc.statut)}`}>{nc.statut}</span></td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{nc.date_creation ? new Date(nc.date_creation).toLocaleDateString('fr-FR') : 'N/A'}</td>
+                    <td className="px-4 py-3 text-sm"><span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${graviteBadgeColor(nc.gravite)}`}>{nc.gravite === 'CRITIQUE' ? 'Critique' : nc.gravite === 'MAJEURE' ? 'Majeure' : 'Mineure'}</span></td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => handleEdit(nc)}
+                          className="text-sm text-lanema-blue-600 hover:text-lanema-blue-700 font-medium"
+                        >
+                          Éditer
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(nc.id)}
+                          className="text-sm text-rose-600 hover:text-rose-700 font-medium"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -177,19 +208,17 @@ export function QualitePage() {
           <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-slate-900">Nouvelle non-conformité</h3>
+                <h3 className="text-lg font-semibold text-slate-900">{editingNC ? 'Modifier la non-conformité' : 'Nouvelle non-conformité'}</h3>
                 <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
               </div>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Numéro *</label><input type="text" value={formData.numero} onChange={(e) => setFormData({...formData, numero: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500" required /></div>
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Type *</label><select value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500"><option value="ESSAI">Essai</option><option value="ECHANTILLON">Échantillon</option><option value="EQUIPEMENT">Équipement</option><option value="DOCUMENT">Document</option></select></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Type *</label><select value={formData.type_nc} onChange={(e) => setFormData({...formData, type_nc: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500"><option value="INTERNE">Interne</option><option value="EXTERNE">Externe</option></select></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Gravité *</label><select value={formData.gravite} onChange={(e) => setFormData({...formData, gravite: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500"><option value="MINEURE">Mineure</option><option value="MAJEURE">Majeure</option><option value="CRITIQUE">Critique</option></select></div>
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Date *</label><input type="date" value={formData.date_detection} onChange={(e) => setFormData({...formData, date_detection: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500" required /></div>
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Description *</label><textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} rows={3} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500" required /></div>
                 </div>
                 <div className="flex gap-3 pt-4">
-                  <button type="submit" className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-lanema-blue-600 hover:bg-lanema-blue-700 rounded-lg transition">Créer</button>
+                  <button type="submit" className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-lanema-blue-600 hover:bg-lanema-blue-700 rounded-lg transition">{editingNC ? 'Modifier' : 'Créer'}</button>
                   <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition">Annuler</button>
                 </div>
               </form>

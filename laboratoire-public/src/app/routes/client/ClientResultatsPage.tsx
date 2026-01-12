@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../../../services/api'
 
 export function ClientResultatsPage() {
+  const navigate = useNavigate()
   const [filter, setFilter] = useState<'tous' | 'conformes' | 'non_conformes'>('tous')
   const [resultats, setResultats] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -13,65 +15,45 @@ export function ClientResultatsPage() {
   const loadResultats = async () => {
     try {
       setIsLoading(true)
-      const data = await api.essais.list()
-      setResultats(data.results || data || [])
+      const data = await api.demandeAnalyse.list()
+      const items = data.results || data || []
+
+      const isResultsAvailable = (statut: string) => {
+        const s = String(statut || '')
+        return s === 'TERMINEE' || s === 'RESULTATS_ENVOYES'
+      }
+
+      const inferConformite = (observations?: string) => {
+        const obs = String(observations || '').toLowerCase()
+        if (!obs) return 'EN_ATTENTE'
+        if (obs.includes('non conforme') || obs.includes('non-conforme')) return 'NON_CONFORME'
+        if (obs.includes('conforme')) return 'CONFORME'
+        return 'EN_ATTENTE'
+      }
+
+      const mapped = items
+        .filter((a: any) => isResultsAvailable(a.statut))
+        .map((a: any) => ({
+          id: a.id,
+          numero: a.numero,
+          type_essai: a.demande_devis_numero ? `Demande ${a.demande_devis_numero}` : 'Demande d\'analyse',
+          echantillon: a.proforma_acceptee_numero ? `Proforma ${a.proforma_acceptee_numero}` : '-',
+          resultat: a.observations || '-',
+          norme: '-',
+          valideur: '-',
+          date_validation: a.date_fin_analyse,
+          paiement_effectue: !!a.paiement_effectue,
+          pdf_disponible: true,
+          statut: inferConformite(a.observations),
+        }))
+
+      setResultats(mapped)
     } catch (error) {
       console.error('Erreur chargement résultats:', error)
     } finally {
       setIsLoading(false)
     }
   }
-
-  const mockResultats = [
-    {
-      id: '1',
-      numero: 'RAP-2024-0301',
-      echantillon: 'ECH-20241127-0442',
-      type_essai: 'Résistance à la compression',
-      valeur: '32.5 MPa',
-      norme: 'NF EN 206',
-      statut: 'CONFORME',
-      date_validation: '2024-11-28',
-      valideur: 'Dr. KOUASSI',
-      pdf_disponible: true,
-    },
-    {
-      id: '2',
-      numero: 'RAP-2024-0298',
-      echantillon: 'ECH-20241126-0435',
-      type_essai: 'Traction acier',
-      valeur: '485 MPa',
-      norme: 'NF A35-015',
-      statut: 'CONFORME',
-      date_validation: '2024-11-27',
-      valideur: 'Dr. KOUASSI',
-      pdf_disponible: true,
-    },
-    {
-      id: '3',
-      numero: 'RAP-2024-0289',
-      echantillon: 'ECH-20241125-0420',
-      type_essai: 'Analyse granulométrique',
-      valeur: 'Fuseau hors tolérances',
-      norme: 'NF EN 933-1',
-      statut: 'NON_CONFORME',
-      date_validation: '2024-11-26',
-      valideur: 'Ing. MBIDA',
-      pdf_disponible: true,
-    },
-    {
-      id: '4',
-      numero: 'RAP-2024-0285',
-      echantillon: 'ECH-20241124-0410',
-      type_essai: 'Teneur en eau',
-      valeur: '3.8%',
-      norme: 'NF P94-050',
-      statut: 'CONFORME',
-      date_validation: '2024-11-25',
-      valideur: 'Ing. NGOUO',
-      pdf_disponible: true,
-    },
-  ]
 
   const statutColor = (statut: string) => {
     const colors: Record<string, string> = {
@@ -87,6 +69,10 @@ export function ClientResultatsPage() {
     if (filter === 'non_conformes') return r.statut === 'NON_CONFORME'
     return true
   })
+
+  const conformesCount = resultats.filter(r => r.statut === 'CONFORME').length
+  const nonConformesCount = resultats.filter(r => r.statut === 'NON_CONFORME').length
+  const tauxConformite = resultats.length > 0 ? (conformesCount / resultats.length) * 100 : 0
 
   return (
     <div className="space-y-6">
@@ -123,19 +109,19 @@ export function ClientResultatsPage() {
         <div className="lanema-card p-4">
           <div className="text-xs text-slate-500 mb-1">Conformes</div>
           <div className="text-2xl font-semibold text-emerald-600">
-            {resultats.filter(r => r.statut === 'CONFORME').length}
+            {conformesCount}
           </div>
         </div>
         <div className="lanema-card p-4">
           <div className="text-xs text-slate-500 mb-1">Non-conformes</div>
           <div className="text-2xl font-semibold text-rose-600">
-            {resultats.filter(r => r.statut === 'NON_CONFORME').length}
+            {nonConformesCount}
           </div>
         </div>
         <div className="lanema-card p-4">
           <div className="text-xs text-slate-500 mb-1">Taux conformité</div>
           <div className="text-2xl font-semibold text-emerald-600">
-            {((resultats.filter(r => r.statut === 'CONFORME').length / resultats.length) * 100).toFixed(1)}%
+            {tauxConformite.toFixed(1)}%
           </div>
         </div>
         </div>
@@ -270,12 +256,31 @@ export function ClientResultatsPage() {
                     <button className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition">
                       Détails
                     </button>
-                    <button className="px-3 py-1.5 text-xs font-medium text-white bg-lanema-blue-600 hover:bg-lanema-blue-700 rounded-lg transition flex items-center gap-1.5">
+                    <button
+                      disabled={!resultat.paiement_effectue}
+                      onClick={async () => {
+                        if (!resultat.paiement_effectue) return
+                        await api.demandeAnalyse.telechargerRapport(resultat.id)
+                      }}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition flex items-center gap-1.5 ${
+                        resultat.paiement_effectue
+                          ? 'text-white bg-lanema-blue-600 hover:bg-lanema-blue-700'
+                          : 'text-slate-400 bg-slate-200 cursor-not-allowed'
+                      }`}
+                    >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                       Télécharger PDF
                     </button>
+                    {!resultat.paiement_effectue && (
+                      <button
+                        onClick={() => navigate('/client/factures')}
+                        className="px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition"
+                      >
+                        Paiement requis
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

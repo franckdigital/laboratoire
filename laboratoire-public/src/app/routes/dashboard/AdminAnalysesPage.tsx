@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../../../services/api'
+import { AlertModal } from '../../../components/AlertModal'
 
 export function AdminAnalysesPage() {
   const [analyses, setAnalyses] = useState<any[]>([])
@@ -8,6 +9,19 @@ export function AdminAnalysesPage() {
   const [showObservationsModal, setShowObservationsModal] = useState(false)
   const [selectedAnalyse, setSelectedAnalyse] = useState<any>(null)
   const [observations, setObservations] = useState('')
+
+  // Modal de confirmation pour la réception des échantillons
+  const [confirmDepotOpen, setConfirmDepotOpen] = useState(false)
+  const [confirmDepotTarget, setConfirmDepotTarget] = useState<any>(null)
+  const [isConfirmDepotLoading, setIsConfirmDepotLoading] = useState(false)
+  // Modal de confirmation pour démarrer l'analyse
+  const [confirmStartOpen, setConfirmStartOpen] = useState(false)
+  const [confirmStartTarget, setConfirmStartTarget] = useState<any>(null)
+  const [isConfirmStartLoading, setIsConfirmStartLoading] = useState(false)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const [feedbackTitle, setFeedbackTitle] = useState('')
+  const [feedbackMessage, setFeedbackMessage] = useState('')
+  const [feedbackType, setFeedbackType] = useState<'success' | 'warning' | 'danger' | 'info'>('info')
 
   useEffect(() => {
     loadAnalyses()
@@ -25,29 +39,73 @@ export function AdminAnalysesPage() {
     }
   }
 
-  const confirmerDepot = async (analyse: any) => {
-    if (!confirm(`Confirmer la réception des échantillons pour ${analyse.numero}?`)) return
+  const handleVoirResultats = (analyse: any) => {
+    setFeedbackTitle('Résultats non disponibles dans la démo')
+    setFeedbackMessage(
+      "La visualisation détaillée des rapports de résultats n'est pas encore implémentée dans cette version. " +
+      "Les rapports pourront être générés et consultés ici dans une prochaine mise à jour."
+    )
+    setFeedbackType('info')
+    setFeedbackOpen(true)
+  }
+
+  const openConfirmDepotModal = (analyse: any) => {
+    setConfirmDepotTarget(analyse)
+    setConfirmDepotOpen(true)
+  }
+
+  const handleConfirmDepot = async () => {
+    if (!confirmDepotTarget) return
+    setIsConfirmDepotLoading(true)
 
     try {
-      await api.demandeAnalyse.confirmerDepotEchantillons(analyse.id)
-      alert('Réception confirmée!')
-      loadAnalyses()
+      await api.demandeAnalyse.confirmerDepotEchantillons(confirmDepotTarget.id)
+      setConfirmDepotOpen(false)
+      setConfirmDepotTarget(null)
+      await loadAnalyses()
+
+      setFeedbackTitle('Réception confirmée')
+      setFeedbackMessage(`La réception des échantillons pour ${confirmDepotTarget.numero} a bien été enregistrée.`)
+      setFeedbackType('success')
+      setFeedbackOpen(true)
     } catch (error: any) {
       console.error('Erreur confirmation:', error)
-      alert(error.message || 'Erreur lors de la confirmation')
+      setFeedbackTitle('Erreur lors de la confirmation')
+      setFeedbackMessage(error.message || "Une erreur est survenue lors de la confirmation de la réception des échantillons.")
+      setFeedbackType('danger')
+      setFeedbackOpen(true)
+    } finally {
+      setIsConfirmDepotLoading(false)
     }
   }
 
-  const demarrerAnalyse = async (analyse: any) => {
-    if (!confirm(`Démarrer l'analyse ${analyse.numero}?`)) return
+  const openConfirmStartModal = (analyse: any) => {
+    setConfirmStartTarget(analyse)
+    setConfirmStartOpen(true)
+  }
+
+  const handleConfirmStart = async () => {
+    if (!confirmStartTarget) return
+    setIsConfirmStartLoading(true)
 
     try {
-      await api.demandeAnalyse.demarrerAnalyse(analyse.id)
-      alert('Analyse démarrée!')
-      loadAnalyses()
+      await api.demandeAnalyse.demarrerAnalyse(confirmStartTarget.id)
+      setConfirmStartOpen(false)
+      setConfirmStartTarget(null)
+      await loadAnalyses()
+
+      setFeedbackTitle('Analyse démarrée')
+      setFeedbackMessage(`L'analyse ${confirmStartTarget.numero} a bien été démarrée.`)
+      setFeedbackType('success')
+      setFeedbackOpen(true)
     } catch (error: any) {
       console.error('Erreur démarrage:', error)
-      alert(error.message || 'Erreur lors du démarrage')
+      setFeedbackTitle("Erreur lors du démarrage de l'analyse")
+      setFeedbackMessage(error.message || "Une erreur est survenue lors du démarrage de l'analyse.")
+      setFeedbackType('danger')
+      setFeedbackOpen(true)
+    } finally {
+      setIsConfirmStartLoading(false)
     }
   }
 
@@ -64,12 +122,19 @@ export function AdminAnalysesPage() {
 
     try {
       await api.demandeAnalyse.terminerAnalyse(selectedAnalyse.id, observations)
-      alert('Analyse terminée!')
       setShowObservationsModal(false)
-      loadAnalyses()
+      await loadAnalyses()
+
+      setFeedbackTitle('Analyse terminée')
+      setFeedbackMessage(`L'analyse ${selectedAnalyse.numero} a été marquée comme terminée.`)
+      setFeedbackType('success')
+      setFeedbackOpen(true)
     } catch (error: any) {
       console.error('Erreur fin analyse:', error)
-      alert(error.message || 'Erreur lors de la fin d\'analyse')
+      setFeedbackTitle("Erreur lors de la fin d'analyse")
+      setFeedbackMessage(error.message || "Une erreur est survenue lors de la clôture de l'analyse.")
+      setFeedbackType('danger')
+      setFeedbackOpen(true)
     }
   }
 
@@ -93,6 +158,51 @@ export function AdminAnalysesPage() {
 
   return (
     <div className="space-y-6">
+      {/* Modals globaux */}
+      <AlertModal
+        isOpen={confirmDepotOpen}
+        onClose={() => {
+          if (!isConfirmDepotLoading) {
+            setConfirmDepotOpen(false)
+            setConfirmDepotTarget(null)
+          }
+        }}
+        onConfirm={handleConfirmDepot}
+        title="Confirmer la réception des échantillons ?"
+        message={confirmDepotTarget ? `Confirmez-vous la réception des échantillons pour ${confirmDepotTarget.numero} ?` : ''}
+        type="warning"
+        confirmText="Oui, confirmer"
+        cancelText="Annuler"
+        isLoading={isConfirmDepotLoading}
+      />
+
+      <AlertModal
+        isOpen={confirmStartOpen}
+        onClose={() => {
+          if (!isConfirmStartLoading) {
+            setConfirmStartOpen(false)
+            setConfirmStartTarget(null)
+          }
+        }}
+        onConfirm={handleConfirmStart}
+        title={confirmStartTarget ? `Démarrer l'analyse ${confirmStartTarget.numero} ?` : "Démarrer l'analyse ?"}
+        message={confirmStartTarget ? `Cette action marquera l'analyse ${confirmStartTarget.numero} comme EN COURS.` : ''}
+        type="warning"
+        confirmText="Oui, démarrer"
+        cancelText="Annuler"
+        isLoading={isConfirmStartLoading}
+      />
+
+      <AlertModal
+        isOpen={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        onConfirm={() => setFeedbackOpen(false)}
+        title={feedbackTitle || 'Information'}
+        message={feedbackMessage || ''}
+        type={feedbackType}
+        confirmText="OK"
+        cancelText="Fermer"
+      />
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Gestion des Analyses</h1>
@@ -247,7 +357,7 @@ export function AdminAnalysesPage() {
               <div className="flex items-center gap-2 pt-4 border-t border-slate-200">
                 {analyse.statut === 'EN_ATTENTE_ECHANTILLONS' && (
                   <button
-                    onClick={() => confirmerDepot(analyse)}
+                    onClick={() => openConfirmDepotModal(analyse)}
                     className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition"
                   >
                     ✅ Confirmer réception échantillons
@@ -255,7 +365,7 @@ export function AdminAnalysesPage() {
                 )}
                 {analyse.statut === 'ECHANTILLONS_RECUS' && (
                   <button
-                    onClick={() => demarrerAnalyse(analyse)}
+                    onClick={() => openConfirmStartModal(analyse)}
                     className="px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition"
                   >
                     🔬 Démarrer l'analyse
@@ -272,7 +382,10 @@ export function AdminAnalysesPage() {
                 {(analyse.statut === 'TERMINEE' || analyse.statut === 'RESULTATS_ENVOYES') && (
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-emerald-600 font-medium">✓ Analyse terminée</span>
-                    <button className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition">
+                    <button
+                      className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition"
+                      onClick={() => handleVoirResultats(analyse)}
+                    >
                       📄 Voir résultats
                     </button>
                   </div>

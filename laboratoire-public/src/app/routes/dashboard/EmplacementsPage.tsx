@@ -155,7 +155,7 @@ export function EmplacementsPage() {
 
   const filteredEmplacements = emplacements.filter(e =>
     e.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    e.entrepot_nom.toLowerCase().includes(searchTerm.toLowerCase())
+    (e.entrepot_details?.nom || '').toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const TYPE_EMPLACEMENT_CHOICES = {
@@ -247,36 +247,34 @@ export function EmplacementsPage() {
                     <span className="font-medium text-gray-900">{emplacement.code}</span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="text-sm text-gray-900">{emplacement.entrepot_nom}</span>
+                    <span className="text-sm text-gray-900">{emplacement.entrepot_details?.nom || 'N/A'}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-sm text-gray-900">
-                      {TYPE_EMPLACEMENT_CHOICES[emplacement.type_emplacement as keyof typeof TYPE_EMPLACEMENT_CHOICES]}
+                      {emplacement.allee && emplacement.rayon ? `Allée ${emplacement.allee}, Rayon ${emplacement.rayon}` : 'N/A'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4">
                     <div className="text-sm text-gray-900">
-                      {[emplacement.allee, emplacement.niveau, emplacement.position]
+                      {[emplacement.entrepot_details?.nom, emplacement.allee, emplacement.rayon]
                         .filter(Boolean)
                         .join(' - ') || '-'}
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900 mb-1">
-                      {emplacement.taux_occupation.toFixed(0)}%
+                      {(emplacement.capacite_utilisee || 0).toFixed(0)}%
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
-                        className={`h-2 rounded-full ${getTauxOccupationColor(emplacement.taux_occupation)}`}
-                        style={{ width: `${emplacement.taux_occupation}%` }}
+                        className={`h-2 rounded-full ${getTauxOccupationColor(emplacement.capacite_utilisee || 0)}`}
+                        style={{ width: `${emplacement.capacite_utilisee || 0}%` }}
                       />
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      emplacement.est_actif ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      {emplacement.est_actif ? 'Actif' : 'Inactif'}
+                    <span className="px-2 py-1 text-xs rounded-full bg-emerald-50 text-emerald-700">
+                      Actif
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
@@ -439,6 +437,7 @@ export function EmplacementsPage() {
         <Toast
           message={toast.message}
           type={toast.type}
+          isVisible={true}
           onClose={() => setToast(null)}
         />
       )}

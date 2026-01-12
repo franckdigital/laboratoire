@@ -67,8 +67,17 @@ export function StockPage() {
   const loadFournisseurs = async () => {
     try {
       setIsLoadingFournisseurs(true)
-      const data = await api.stock.fournisseurs.list()
-      setFournisseurs(data.results || data || [])
+      // Charger les fournisseurs depuis le module clients (User avec role=FOURNISSEUR)
+      const data = await api.clients.list({ role: 'FOURNISSEUR' })
+      const items = data.results || data || []
+      // Mapper les champs pour compatibilité avec le formulaire
+      setFournisseurs(items.map((f: any) => ({
+        id: f.id,
+        raison_sociale: f.raison_sociale || f.nom || f.username,
+        email: f.email,
+        telephone: f.telephone,
+        adresse: f.adresse
+      })))
     } catch (error: any) {
       console.error('Erreur chargement fournisseurs:', error)
     } finally {
@@ -135,7 +144,7 @@ export function StockPage() {
     setCategorieForm({
       code: categorie.code,
       nom: categorie.nom,
-      domaine: categorie.domaine,
+      domaine: categorie.domaine?.id || categorie.domaine || '',
       description: categorie.description || ''
     })
     setShowCategoriesListModal(false)
@@ -196,10 +205,18 @@ export function StockPage() {
   const handleCreateFournisseur = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
+      const payload = {
+        nom: fournisseurForm.raison_sociale,
+        raison_sociale: fournisseurForm.raison_sociale,
+        email: fournisseurForm.email || `fournisseur${Date.now()}@temp.cm`,
+        telephone: fournisseurForm.telephone,
+        adresse: fournisseurForm.adresse,
+        role: 'FOURNISSEUR'
+      }
       if (editingFournisseur) {
-        await api.stock.fournisseurs.update(editingFournisseur.id, fournisseurForm)
+        await api.clients.update(editingFournisseur.id, payload)
       } else {
-        await api.stock.fournisseurs.create(fournisseurForm)
+        await api.clients.create(payload)
       }
       setShowFournisseurModal(false)
       setEditingFournisseur(null)
@@ -214,11 +231,11 @@ export function StockPage() {
   const handleEditFournisseur = (fournisseur: any) => {
     setEditingFournisseur(fournisseur)
     setFournisseurForm({
-      code_fournisseur: fournisseur.code_fournisseur,
-      raison_sociale: fournisseur.raison_sociale,
+      code_fournisseur: fournisseur.id?.toString() || '',
+      raison_sociale: fournisseur.raison_sociale || '',
       adresse: fournisseur.adresse || '',
-      ville: fournisseur.ville || '',
-      pays: fournisseur.pays || 'Cameroun',
+      ville: '',
+      pays: 'Cameroun',
       telephone: fournisseur.telephone || '',
       email: fournisseur.email || ''
     })
@@ -229,7 +246,7 @@ export function StockPage() {
   const handleDeleteFournisseur = async (id: string) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce fournisseur ?')) return
     try {
-      await api.stock.fournisseurs.delete(id)
+      await api.clients.delete(id)
       loadFournisseurs()
     } catch (error: any) {
       console.error('Erreur suppression fournisseur:', error)
@@ -252,10 +269,22 @@ export function StockPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
+      // Mapper les champs du formulaire vers les champs du backend
+      const payload: any = {
+        reference_interne: formData.reference,
+        designation: formData.designation,
+        categorie_id: formData.categorie || null,
+        quantite_stock: parseFloat(formData.quantite_stock) || 0,
+        unite_mesure: formData.unite,
+        seuil_alerte: parseFloat(formData.seuil_alerte) || 0,
+        est_critique: parseFloat(formData.seuil_critique || '0') > 0,
+        emplacement_id: formData.emplacement || null,
+      }
+      
       if (editingArticle) {
-        await api.stock.update(editingArticle.id, formData)
+        await api.stock.update(editingArticle.id, payload)
       } else {
-        await api.stock.create(formData)
+        await api.stock.create(payload)
       }
       setShowModal(false)
       setEditingArticle(null)
@@ -269,14 +298,14 @@ export function StockPage() {
   const handleEdit = (article: any) => {
     setEditingArticle(article)
     setFormData({
-      reference: article.reference || '',
+      reference: article.reference_interne || article.reference || '',
       designation: article.designation || '',
-      categorie: article.categorie || '',
+      categorie: article.categorie?.id || article.categorie_id || '',
       quantite_stock: article.quantite_stock?.toString() || '',
-      unite: article.unite || '',
+      unite: article.unite_mesure || article.unite || '',
       seuil_alerte: article.seuil_alerte?.toString() || '',
       seuil_critique: article.seuil_critique?.toString() || '',
-      emplacement: article.emplacement_id || '',  // Utiliser emplacement_id au lieu de emplacement
+      emplacement: article.emplacement?.id || article.emplacement_id || article.emplacement || '',
       fournisseur: article.fournisseur || ''
     })
     setShowModal(true)
@@ -431,16 +460,16 @@ export function StockPage() {
                   return (
                     <tr key={article.id} className="border-t border-slate-100 hover:bg-slate-50 transition">
                       <td className="px-4 py-3 text-sm font-medium text-slate-900">
-                        {article.reference}
+                        {article.reference_interne || article.reference}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-700 max-w-xs truncate">
                         {article.designation}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-600">
-                        {article.categorie}
+                        {article.categorie?.nom || 'N/A'}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-900 text-right font-medium">
-                        {article.quantite_stock} {article.unite}
+                        {article.quantite_stock} {article.unite_mesure || article.unite}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-600">
                         {article.emplacement || 'N/A'}
@@ -563,15 +592,16 @@ export function StockPage() {
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Quantité en stock *
+                      Quantité en stock
+                      {!editingArticle && <span className="text-xs text-slate-500 ml-1">(géré via réceptions)</span>}
                     </label>
                     <input
                       type="number"
-                      value={formData.quantite_stock}
+                      value={formData.quantite_stock || '0'}
                       onChange={(e) => setFormData({...formData, quantite_stock: e.target.value})}
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500"
+                      className={`w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500 ${!editingArticle ? 'bg-slate-50 text-slate-500' : ''}`}
                       placeholder="0"
-                      required
+                      readOnly={!editingArticle}
                     />
                   </div>
 
@@ -763,7 +793,7 @@ export function StockPage() {
                         <option value="" disabled>Chargement...</option>
                       )}
                       {!isLoadingDomaines && domaines.map((dom: any) => (
-                        <option key={dom.id} value={dom.code}>
+                        <option key={dom.id} value={dom.id}>
                           {dom.nom}
                         </option>
                       ))}

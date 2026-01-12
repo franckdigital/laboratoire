@@ -1,5 +1,6 @@
-import { createBrowserRouter } from 'react-router-dom'
+import { Navigate, createBrowserRouter } from 'react-router-dom'
 import { HomePage } from './app/routes/public/HomePage'
+import { ProcessDevisPage } from './app/routes/public/ProcessDevisPage'
 import { DashboardLayout } from './app/layouts/DashboardLayout'
 import { DashboardHomePage } from './app/routes/dashboard/DashboardHomePage'
 import { ClientsPage } from './app/routes/dashboard/ClientsPage'
@@ -14,6 +15,10 @@ import { AlertesStockPage } from './app/routes/dashboard/AlertesStockPage'
 import { QuarantainesPage } from './app/routes/dashboard/QuarantainesPage'
 import { TransfertsPage } from './app/routes/dashboard/TransfertsPage'
 import { ReceptionsPage } from './app/routes/dashboard/ReceptionsPage'
+import { SortiesStockPage } from './app/routes/dashboard/SortiesStockPage'
+import { TracabilitePage } from './app/routes/dashboard/TracabilitePage'
+import { StatistiquesStockPage } from './app/routes/dashboard/StatistiquesStockPage'
+import { InventairePage } from './app/routes/dashboard/InventairePage'
 import { FacturationPage } from './app/routes/dashboard/FacturationPage'
 import { QualitePage } from './app/routes/dashboard/QualitePage'
 import { ReportingPage } from './app/routes/dashboard/ReportingPage'
@@ -28,9 +33,13 @@ import { ClientDemandesPage } from './app/routes/client/ClientDemandesPage'
 import { ClientEchantillonsPage } from './app/routes/client/ClientEchantillonsPage'
 import { ClientResultatsPage } from './app/routes/client/ClientResultatsPage'
 import { ClientFacturesPage } from './app/routes/client/ClientFacturesPage'
+import { ClientNotificationsPage } from './app/routes/client/ClientNotificationsPage'
 import { DemandeDevisPage } from './app/routes/client/DemandeDevisPage'
+import { ProfilPage } from './app/routes/client/ProfilPage'
 import { LoginPage } from './app/routes/auth/LoginPage'
 import { RegisterPage } from './app/routes/auth/RegisterPage'
+import { ForgotPasswordPage } from './app/routes/auth/ForgotPasswordPage'
+import { ResetPasswordPage } from './app/routes/auth/ResetPasswordPage'
 import { UnauthorizedPage } from './app/routes/UnauthorizedPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { RoleRedirect } from './components/RoleRedirect'
@@ -42,8 +51,20 @@ export const router = createBrowserRouter([
     element: <HomePage />,
   },
   {
+    path: '/process-devis',
+    element: <ProcessDevisPage />,
+  },
+  {
     path: '/login',
     element: <LoginPage />,
+  },
+  {
+    path: '/forgot-password',
+    element: <ForgotPasswordPage />,
+  },
+  {
+    path: '/reset-password',
+    element: <ResetPasswordPage />,
   },
   {
     path: '/register',
@@ -106,6 +127,38 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: 'quarantaines',
+        element: <Navigate to="/app/stock/quarantaines" replace />,
+      },
+      {
+        path: 'alertes',
+        element: <Navigate to="/app/stock/alertes" replace />,
+      },
+      {
+        path: 'receptions',
+        element: <Navigate to="/app/stock/receptions" replace />,
+      },
+      {
+        path: 'sorties',
+        element: <Navigate to="/app/stock/sorties" replace />,
+      },
+      {
+        path: 'transferts',
+        element: <Navigate to="/app/stock/transferts" replace />,
+      },
+      {
+        path: 'lots',
+        element: <Navigate to="/app/stock/lots" replace />,
+      },
+      {
+        path: 'entrepots',
+        element: <Navigate to="/app/stock/entrepots" replace />,
+      },
+      {
+        path: 'emplacements',
+        element: <Navigate to="/app/stock/emplacements" replace />,
+      },
+      {
         path: 'stock/entrepots',
         element: (
           <PermissionGuard permission="stock.view">
@@ -158,6 +211,38 @@ export const router = createBrowserRouter([
         element: (
           <PermissionGuard permission="stock.view">
             <ReceptionsPage />
+          </PermissionGuard>
+        ),
+      },
+      {
+        path: 'stock/sorties',
+        element: (
+          <PermissionGuard permission="stock.view">
+            <SortiesStockPage />
+          </PermissionGuard>
+        ),
+      },
+      {
+        path: 'stock/tracabilite',
+        element: (
+          <PermissionGuard permission="stock.view">
+            <TracabilitePage />
+          </PermissionGuard>
+        ),
+      },
+      {
+        path: 'stock/statistiques',
+        element: (
+          <PermissionGuard permission="stock.view">
+            <StatistiquesStockPage />
+          </PermissionGuard>
+        ),
+      },
+      {
+        path: 'stock/inventaires',
+        element: (
+          <PermissionGuard permission="stock.view">
+            <InventairePage />
           </PermissionGuard>
         ),
       },
@@ -248,6 +333,10 @@ export const router = createBrowserRouter([
         element: <ClientDemandesPage />,
       },
       {
+        path: 'notifications',
+        element: <ClientNotificationsPage />,
+      },
+      {
         path: 'demande-devis',
         element: <DemandeDevisPage />,
       },
@@ -262,6 +351,10 @@ export const router = createBrowserRouter([
       {
         path: 'factures',
         element: <ClientFacturesPage />,
+      },
+      {
+        path: 'profil',
+        element: <ProfilPage />,
       },
     ],
   },

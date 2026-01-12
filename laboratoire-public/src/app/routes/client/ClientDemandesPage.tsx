@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../../services/api'
+import { AlertModal } from '../../../components/AlertModal'
+import { Modal } from '../../../components/Modal'
 
 export function ClientDemandesPage() {
   const navigate = useNavigate()
@@ -10,6 +12,22 @@ export function ClientDemandesPage() {
   const [demandesAnalyses, setDemandesAnalyses] = useState<any[]>([])
   const [filterAnalyses, setFilterAnalyses] = useState('tous')
   const [isLoading, setIsLoading] = useState(true)
+  const [expandedDemandeId, setExpandedDemandeId] = useState<string | null>(null)
+
+  // Modals pour actions sur proforma
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false)
+  const [confirmModalType, setConfirmModalType] = useState<'accept' | 'refuse'>('accept')
+  const [confirmTargetId, setConfirmTargetId] = useState<string | null>(null)
+  const [isConfirmLoading, setIsConfirmLoading] = useState(false)
+
+  // Modal d'erreur pour téléchargement PDF
+  const [pdfErrorModalOpen, setPdfErrorModalOpen] = useState(false)
+  const [pdfErrorMessage, setPdfErrorMessage] = useState('')
+
+  // Modal d'information pour les résultats / paiement
+  const [infoModalOpen, setInfoModalOpen] = useState(false)
+  const [infoModalTitle, setInfoModalTitle] = useState('')
+  const [infoModalMessage, setInfoModalMessage] = useState('')
 
   useEffect(() => {
     loadDemandes()
@@ -27,6 +45,63 @@ export function ClientDemandesPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleDownloadDevis = async (demande: any) => {
+    if (!demande.devis_pdf) {
+      return
+    }
+    try {
+      const token = localStorage.getItem('lanema_token')
+      const headers: HeadersInit = {}
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
+      const response = await fetch(demande.devis_pdf, {
+        method: 'GET',
+        headers,
+      })
+
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '')
+        throw new Error(errText || 'Erreur lors du téléchargement du devis')
+      }
+
+      const blob = await response.blob()
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = downloadUrl
+      a.download = demande.numero ? `Devis_${demande.numero}.pdf` : 'Devis.pdf'
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(downloadUrl)
+      document.body.removeChild(a)
+    } catch (error: any) {
+      console.error('Erreur téléchargement devis:', error)
+      const message = error?.message || 'Erreur lors du téléchargement du devis'
+      setPdfErrorMessage(message)
+      setPdfErrorModalOpen(true)
+    }
+  }
+
+  const handleDownloadResults = async (demandeAnalyse: any) => {
+    try {
+      await api.demandeAnalyse.telechargerRapport(demandeAnalyse.id)
+    } catch (error: any) {
+      console.error('Erreur téléchargement rapport résultats:', error)
+      setInfoModalTitle('Erreur lors du téléchargement des résultats')
+      setInfoModalMessage(
+        (error && error.message) ||
+        "Une erreur est survenue lors du téléchargement du rapport de résultats. Veuillez réessayer ou contacter le laboratoire."
+      )
+      setInfoModalOpen(true)
+    }
+  }
+
+  const handleGoToPayment = (demandeAnalyse: any) => {
+    // Rediriger vers la page factures de l'espace client
+    navigate('/client/factures')
   }
 
   const loadProformas = async () => {
@@ -47,12 +122,101 @@ export function ClientDemandesPage() {
     }
   }
 
+  const normalizeId = (value: any) => {
+    if (value == null) return ''
+    if (typeof value === 'object') return value.id != null ? String(value.id) : ''
+    return String(value)
+  }
+
   const getProformaForDemande = (demandeId: string) => {
-    return proformas.find(p => p.demande_devis === demandeId)
+    const id = normalizeId(demandeId)
+    return proformas.find((p) => normalizeId(p.demande_devis) === id)
   }
 
   const getDemandeAnalyseForDemande = (demandeId: string) => {
-    return demandesAnalyses.find(da => da.demande_devis === demandeId)
+    const id = normalizeId(demandeId)
+    return demandesAnalyses.find((da) => normalizeId(da.demande_devis) === id)
+  }
+
+  const getWorkflow = (demande: any) => {
+    const proforma = getProformaForDemande(demande.id)
+    const demandeAnalyse = getDemandeAnalyseForDemande(demande.id)
+
+    // 1) DemandeAnalyse = source de vérité si elle existe
+    if (demandeAnalyse) {
+      const statut = demandeAnalyse.statut
+      const isDone = statut === 'TERMINEE' || statut === 'RESULTATS_ENVOYES'
+      const isRunning = statut === 'EN_COURS' || statut === 'ECHANTILLONS_RECUS'
+      const isWaiting = statut === 'EN_ATTENTE_ECHANTILLONS'
+
+      return {
+        proforma,
+        demandeAnalyse,
+        bucket: isDone ? 'terminees' : 'en_cours',
+        badge: isDone ? 'Terminée' : isRunning ? 'En cours' : 'En attente',
+        badgeKey: isDone ? 'ACCEPTEE' : isRunning ? 'EN_COURS' : 'EN_ATTENTE',
+        progress: isDone ? 100 : isRunning ? 60 : isWaiting ? 40 : 40,
+      }
+    }
+
+    // 2) Sinon, la proforma pilote l'état
+    if (proforma) {
+      if (proforma.statut === 'REFUSEE') {
+        return {
+          proforma,
+          demandeAnalyse: null,
+          bucket: 'toutes',
+          badge: 'Refusée',
+          badgeKey: 'REFUSEE',
+          progress: 0,
+        }
+      }
+
+      if (proforma.statut === 'ACCEPTEE') {
+        return {
+          proforma,
+          demandeAnalyse: null,
+          bucket: 'en_cours',
+          badge: 'Acceptée',
+          badgeKey: 'ACCEPTEE',
+          progress: 50,
+        }
+      }
+
+      if (proforma.statut === 'VALIDEE') {
+        return {
+          proforma,
+          demandeAnalyse: null,
+          bucket: 'en_cours',
+          badge: 'À valider',
+          badgeKey: 'EN_COURS',
+          progress: 25,
+        }
+      }
+
+      // BROUILLON / ENVOYEE / autres
+      return {
+        proforma,
+        demandeAnalyse: null,
+        bucket: 'toutes',
+        badge: 'En attente',
+        badgeKey: 'EN_ATTENTE',
+        progress: 10,
+      }
+    }
+
+    // 3) Fallback sur DemandeDevis
+    const statut = demande?.statut
+    if (statut === 'ACCEPTEE') {
+      return { proforma: null, demandeAnalyse: null, bucket: 'terminees', badge: 'Acceptée', badgeKey: 'ACCEPTEE', progress: 100 }
+    }
+    if (statut === 'EN_COURS') {
+      return { proforma: null, demandeAnalyse: null, bucket: 'en_cours', badge: 'En cours', badgeKey: 'EN_COURS', progress: 50 }
+    }
+    if (statut === 'REFUSEE') {
+      return { proforma: null, demandeAnalyse: null, bucket: 'toutes', badge: 'Refusée', badgeKey: 'REFUSEE', progress: 0 }
+    }
+    return { proforma: null, demandeAnalyse: null, bucket: 'toutes', badge: 'En attente', badgeKey: 'EN_ATTENTE', progress: 0 }
   }
 
   const telechargerProforma = async (proformaId: string) => {
@@ -61,44 +225,29 @@ export function ClientDemandesPage() {
     } catch (error: any) {
       console.error('Erreur téléchargement PDF:', error)
       const message = error.message || 'Erreur lors du téléchargement du PDF'
-      alert(message)
+      setPdfErrorMessage(message)
+      setPdfErrorModalOpen(true)
     }
   }
 
   const accepterProforma = async (proformaId: string) => {
-    if (!confirm('Accepter ce devis? Une demande d\'analyse sera créée.')) return
-    
-    try {
-      await api.proforma.accepter(proformaId)
-      alert('Devis accepté! Votre demande d\'analyse a été créée.')
-      // Recharger les données
-      await Promise.all([loadDemandes(), loadProformas(), loadDemandesAnalyses()])
-    } catch (error: any) {
-      console.error('Erreur acceptation:', error)
-      alert(error.message || 'Erreur lors de l\'acceptation du devis')
-    }
+    setConfirmTargetId(proformaId)
+    setConfirmModalType('accept')
+    setConfirmModalOpen(true)
   }
 
   const refuserProforma = async (proformaId: string) => {
-    if (!confirm('Refuser ce devis? Cette action est irréversible.')) return
-    
-    try {
-      await api.proforma.refuser(proformaId)
-      alert('Devis refusé.')
-      // Recharger les données
-      await Promise.all([loadDemandes(), loadProformas()])
-    } catch (error: any) {
-      console.error('Erreur refus:', error)
-      alert(error.message || 'Erreur lors du refus du devis')
-    }
+    setConfirmTargetId(proformaId)
+    setConfirmModalType('refuse')
+    setConfirmModalOpen(true)
   }
 
   const statutColor = (statut: string) => {
     const colors: Record<string, string> = {
       'EN_ATTENTE': 'bg-slate-100 text-slate-700',
       'EN_COURS': 'bg-lanema-blue-50 text-lanema-blue-700',
-      'TERMINEE': 'bg-emerald-50 text-emerald-700',
-      'ANNULEE': 'bg-rose-50 text-rose-700',
+      'ACCEPTEE': 'bg-emerald-50 text-emerald-700',
+      'REFUSEE': 'bg-rose-50 text-rose-700',
     }
     return colors[statut] || 'bg-slate-100 text-slate-600'
   }
@@ -114,8 +263,9 @@ export function ClientDemandesPage() {
   }
 
   const filteredDemandes = demandes.filter(d => {
-    if (filter === 'en_cours') return d.statut === 'EN_COURS' || d.statut === 'EN_ATTENTE'
-    if (filter === 'terminees') return d.statut === 'DEVIS_ENVOYE' || d.statut === 'ACCEPTE'
+    const wf = getWorkflow(d)
+    if (filter === 'en_cours') return wf.bucket === 'en_cours'
+    if (filter === 'terminees') return wf.bucket === 'terminees'
     return true
   })
 
@@ -124,16 +274,115 @@ export function ClientDemandesPage() {
     const map: Record<string, number> = {
       'EN_ATTENTE': 0,
       'EN_COURS': 50,
-      'DEVIS_ENVOYE': 75,
-      'ACCEPTE': 100,
-      'REFUSE': 0,
-      'ANNULE': 0,
+      'ACCEPTEE': 100,
+      'REFUSEE': 0,
     }
     return map[statut] || 0
   }
 
+  const getAvancementFromWorkflow = (demande: any) => {
+    const wf = getWorkflow(demande)
+    return wf.progress
+  }
+
+  const countWorkflow = (bucket: 'en_cours' | 'terminees') => {
+    return demandes.filter((d) => getWorkflow(d).bucket === bucket).length
+  }
+
+  const handleConfirmAction = async () => {
+    if (!confirmTargetId) return
+    setIsConfirmLoading(true)
+
+    try {
+      if (confirmModalType === 'accept') {
+        await api.proforma.accepter(confirmTargetId)
+        await Promise.all([loadDemandes(), loadProformas(), loadDemandesAnalyses()])
+      } else {
+        await api.proforma.refuser(confirmTargetId)
+        await Promise.all([loadDemandes(), loadProformas()])
+      }
+      setConfirmModalOpen(false)
+      setConfirmTargetId(null)
+    } catch (error) {
+      console.error('Erreur action proforma:', error)
+    } finally {
+      setIsConfirmLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
+      {/* Modals globaux */}
+      <AlertModal
+        isOpen={confirmModalOpen}
+        onClose={() => {
+          if (!isConfirmLoading) {
+            setConfirmModalOpen(false)
+            setConfirmTargetId(null)
+          }
+        }}
+        onConfirm={handleConfirmAction}
+        title={confirmModalType === 'accept' ? 'Accepter ce devis ?' : 'Refuser ce devis ?'}
+        message={
+          confirmModalType === 'accept'
+            ? "Une demande d'analyse sera créée pour lancer la PHASE 2 (analyses)."
+            : 'Cette action est irréversible. Le devis sera marqué comme refusé.'
+        }
+        type={confirmModalType === 'accept' ? 'success' : 'danger'}
+        confirmText={confirmModalType === 'accept' ? 'Oui, accepter' : 'Oui, refuser'}
+        cancelText="Annuler"
+        isLoading={isConfirmLoading}
+      />
+
+      <Modal
+        isOpen={pdfErrorModalOpen}
+        onClose={() => setPdfErrorModalOpen(false)}
+        title="Erreur lors du téléchargement du PDF"
+        maxWidth="md"
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-slate-700">
+            Le fichier PDF n'a pas pu être téléchargé. Merci de réessayer dans quelques instants. Si le
+            problème persiste, contactez le support LANEMA.
+          </p>
+          {pdfErrorMessage && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 whitespace-pre-line">
+              {pdfErrorMessage}
+            </div>
+          )}
+          <div className="pt-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setPdfErrorModalOpen(false)}
+              className="px-4 py-2 bg-lanema-blue-600 hover:bg-lanema-blue-700 text-white text-sm font-semibold rounded-lg transition"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={infoModalOpen}
+        onClose={() => setInfoModalOpen(false)}
+        title={infoModalTitle || 'Information'}
+        maxWidth="md"
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-slate-700 whitespace-pre-line">
+            {infoModalMessage}
+          </p>
+          <div className="pt-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setInfoModalOpen(false)}
+              className="px-4 py-2 bg-lanema-blue-600 hover:bg-lanema-blue-700 text-white text-sm font-semibold rounded-lg transition"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      </Modal>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -160,13 +409,13 @@ export function ClientDemandesPage() {
         <div className="lanema-card p-4">
           <div className="text-xs text-slate-500 mb-1">En cours</div>
           <div className="text-2xl font-semibold text-lanema-blue-600">
-            {demandes.filter(d => d.statut === 'EN_COURS').length}
+            {countWorkflow('en_cours')}
           </div>
         </div>
         <div className="lanema-card p-4">
           <div className="text-xs text-slate-500 mb-1">Terminées</div>
           <div className="text-2xl font-semibold text-emerald-600">
-            {demandes.filter(d => d.statut === 'ACCEPTE' || d.statut === 'DEVIS_ENVOYE').length}
+            {countWorkflow('terminees')}
           </div>
         </div>
         <div className="lanema-card p-4">
@@ -198,7 +447,7 @@ export function ClientDemandesPage() {
                 : 'text-slate-600 hover:bg-slate-50'
             }`}
           >
-            En cours ({demandes.filter(d => d.statut === 'EN_COURS' || d.statut === 'EN_ATTENTE').length})
+            En cours ({countWorkflow('en_cours')})
           </button>
           <button
             onClick={() => setFilter('terminees')}
@@ -208,7 +457,7 @@ export function ClientDemandesPage() {
                 : 'text-slate-600 hover:bg-slate-50'
             }`}
           >
-            Terminées ({demandes.filter(d => d.statut === 'ACCEPTE' || d.statut === 'DEVIS_ENVOYE').length})
+            Terminées ({countWorkflow('terminees')})
           </button>
         </div>
       </div>
@@ -236,7 +485,14 @@ export function ClientDemandesPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredDemandes.map((demande) => (
+          {filteredDemandes.map((demande) => {
+            const wf = getWorkflow(demande)
+            const proforma = wf.proforma
+            const demandeAnalyse = wf.demandeAnalyse
+            const progress = getAvancementFromWorkflow(demande)
+            const isExpanded = expandedDemandeId === demande.id
+
+            return (
           <div key={demande.id} className="lanema-card p-6 hover:shadow-md transition">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-start gap-4">
@@ -260,8 +516,8 @@ export function ClientDemandesPage() {
                   </div>
                 </div>
               </div>
-              <span className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-full ${statutColor(demande.statut)}`}>
-                {demande.statut.replace('_', ' ')}
+              <span className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-full ${statutColor(wf.badgeKey)}`}>
+                {wf.badge}
               </span>
             </div>
 
@@ -269,21 +525,18 @@ export function ClientDemandesPage() {
             <div className="mb-4">
               <div className="flex items-center justify-between text-xs mb-2">
                 <span className="text-slate-600 font-medium">Avancement</span>
-                <span className="text-slate-900 font-semibold">{getAvancement(demande.statut)}%</span>
+                <span className="text-slate-900 font-semibold">{progress}%</span>
               </div>
               <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                 <div
-                  className={`h-full ${getAvancement(demande.statut) === 100 ? 'bg-emerald-500' : 'bg-lanema-blue-500'} rounded-full transition-all`}
-                  style={{ width: `${getAvancement(demande.statut)}%` }}
+                  className={`h-full ${progress === 100 ? 'bg-emerald-500' : 'bg-lanema-blue-500'} rounded-full transition-all`}
+                  style={{ width: `${progress}%` }}
                 />
               </div>
             </div>
 
             {/* Proforma & Demande d'Analyse */}
             {(() => {
-              const proforma = getProformaForDemande(demande.id)
-              const demandeAnalyse = getDemandeAnalyseForDemande(demande.id)
-              
               if (!proforma) return null
 
               // BROUILLON - PHASE 1: Devis estimatif disponible
@@ -456,24 +709,39 @@ export function ClientDemandesPage() {
                         <div className="p-4 bg-emerald-100 rounded-lg border border-emerald-300 mb-3">
                           <p className="text-sm font-semibold text-emerald-900 mb-2">✅ ÉTAPE 8 - Résultats disponibles</p>
                           <p className="text-xs text-emerald-800 mb-2">
-                            Les analyses sont terminées ! Vous pouvez maintenant télécharger vos résultats.
+                            Les analyses sont terminées ! Vous pouvez maintenant consulter l'état de vos résultats.
                           </p>
                           <p className="text-xs text-emerald-700">
-                            💳 Veuillez procéder au paiement avant de télécharger les résultats (ÉTAPE 9).
+                            💳 Le téléchargement des résultats sera disponible une fois le paiement de la facture associé effectué (ÉTAPE 9).
                           </p>
                         </div>
+                        {(() => {
+                          const paiementEffectue = demandeAnalyse.paiement_effectue
+                          return (
                         <div className="flex items-center gap-2">
                           <button 
-                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition shadow-md"
+                            className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition shadow-md ${
+                              paiementEffectue
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                            }`}
+                            disabled={!paiementEffectue}
+                            onClick={() => {
+                              if (!paiementEffectue) return
+                              handleDownloadResults(demandeAnalyse)
+                            }}
                           >
                             📄 Télécharger les résultats
                           </button>
                           <button 
                             className="px-4 py-2.5 bg-white text-emerald-700 text-sm font-medium rounded-lg hover:bg-emerald-50 border border-emerald-300 transition"
+                            onClick={() => handleGoToPayment(demandeAnalyse)}
                           >
                             💳 Paiement
                           </button>
                         </div>
+                          )
+                        })()}
                       </div>
                     )}
                   </div>
@@ -495,30 +763,36 @@ export function ClientDemandesPage() {
             {/* Actions */}
             <div className="flex items-center justify-between pt-4 border-t border-slate-100">
               <div className="flex items-center gap-2">
-                {(demande.statut === 'ACCEPTE' || demande.statut === 'DEVIS_ENVOYE') && (
+                {wf.badgeKey === 'ACCEPTEE' && (
                   <span className="text-xs font-medium text-emerald-600">✓ Devis disponible</span>
                 )}
-                {demande.statut === 'EN_COURS' && (
+                {wf.badgeKey === 'EN_COURS' && (
                   <span className="text-xs font-medium text-lanema-blue-600">🔄 Traitement en cours</span>
                 )}
-                {demande.statut === 'EN_ATTENTE' && (
+                {wf.badgeKey === 'EN_ATTENTE' && (
                   <span className="text-xs font-medium text-slate-600">⏳ En attente de traitement</span>
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <button className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition">
+                <button
+                  type="button"
+                  onClick={() => setExpandedDemandeId((prev) => (prev === demande.id ? null : demande.id))}
+                  className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+                >
                   Détails
                 </button>
-                {demande.statut === 'DEVIS_ENVOYE' && (
+                {proforma?.statut === 'VALIDEE' && (
                   <>
                     <button 
-                      onClick={() => api.devis.accepter(demande.id)}
+                      type="button"
+                      onClick={() => accepterProforma(proforma.id)}
                       className="px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition"
                     >
                       Accepter
                     </button>
                     <button 
-                      onClick={() => api.devis.refuser(demande.id)}
+                      type="button"
+                      onClick={() => refuserProforma(proforma.id)}
                       className="px-3 py-1.5 text-xs font-medium text-rose-700 bg-rose-100 hover:bg-rose-200 rounded-lg transition"
                     >
                       Refuser
@@ -526,19 +800,36 @@ export function ClientDemandesPage() {
                   </>
                 )}
                 {demande.devis_pdf && (
-                  <a 
-                    href={demande.devis_pdf} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadDevis(demande)}
                     className="px-3 py-1.5 text-xs font-medium text-white bg-lanema-blue-600 hover:bg-lanema-blue-700 rounded-lg transition"
                   >
                     Télécharger devis
-                  </a>
+                  </button>
                 )}
               </div>
             </div>
+
+            {isExpanded && (
+              <div className="mt-4 p-4 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-700">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <div className="font-semibold text-slate-900 mb-1">Proforma</div>
+                    <div>Numéro: {proforma?.numero || '-'}</div>
+                    <div>Statut: {proforma?.statut || '-'}</div>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-slate-900 mb-1">Demande d'analyse</div>
+                    <div>Numéro: {demandeAnalyse?.numero || '-'}</div>
+                    <div>Statut: {demandeAnalyse?.statut || '-'}</div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        ))}
+            )
+          })}
         </div>
       )}
     </div>

@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../../contexts/AuthContext'
 import api from '../../../services/api'
+import { Modal } from '../../../components/Modal'
 
 interface EchantillonForm {
   id: string
@@ -30,6 +31,9 @@ export function DemandeDevisPage() {
   const [success, setSuccess] = useState(false)
   const [proformaId, setProformaId] = useState<string | null>(null)
   const [isLoadingProforma, setIsLoadingProforma] = useState(false)
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false)
+  const [errorModalTitle, setErrorModalTitle] = useState('Erreur lors de l\'envoi de la demande')
+  const [errorModalDetails, setErrorModalDetails] = useState<string[]>([])
 
   const typesAnalyse = [
     { value: 'MICROBIOLOGIE_PARASITOLOGIE', label: 'Microbiologie et parasitologie', icon: '🦠' },
@@ -196,13 +200,19 @@ export function DemandeDevisPage() {
       
       // Si c'est une erreur de validation du backend
       if (error.details) {
-        const details = Object.entries(error.details)
-          .map(([key, value]) => `${key}: ${value}`)
-          .join('\n')
-        errorMessage += '\n\nDétails:\n' + details
+        const detailsArray: string[] = Object.entries(error.details).map(([key, value]) => {
+          const valueText = Array.isArray(value) ? value.join(', ') : String(value)
+          return `${key}: ${valueText}`
+        })
+
+        setErrorModalTitle('Erreur de validation')
+        setErrorModalDetails(detailsArray)
+      } else {
+        setErrorModalTitle('Erreur lors de l\'envoi de la demande')
+        setErrorModalDetails([errorMessage])
       }
-      
-      alert(errorMessage)
+
+      setIsErrorModalOpen(true)
     } finally {
       setIsSubmitting(false)
     }
@@ -253,9 +263,59 @@ export function DemandeDevisPage() {
 
   return (
     <div className="space-y-6">
+      <Modal
+        isOpen={isErrorModalOpen}
+        onClose={() => setIsErrorModalOpen(false)}
+        title={errorModalTitle}
+        maxWidth="md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-slate-700">
+            Votre demande n'a pas pu être envoyée car certaines informations sont manquantes ou incorrectes.
+            Merci de vérifier les champs ci-dessous puis de réessayer.
+          </p>
+          {errorModalDetails.length > 0 && (
+            <ul className="list-disc list-inside space-y-1 text-sm text-slate-800">
+              {errorModalDetails.map((item, index) => (
+                <li key={index}>{item}</li>
+              ))}
+            </ul>
+          )}
+          <div className="pt-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setIsErrorModalOpen(false)}
+              className="px-4 py-2 bg-lanema-blue-600 hover:bg-lanema-blue-700 text-white text-sm font-semibold rounded-lg transition"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      </Modal>
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Demande de devis</h1>
         <p className="text-sm text-slate-600 mt-1">Remplissez le formulaire pour obtenir un devis personnalisé</p>
+      </div>
+
+      <div className="lanema-card p-5 bg-lanema-blue-50 border border-lanema-blue-100 text-sm text-slate-700 space-y-2">
+        <h2 className="text-sm font-semibold text-lanema-blue-900 mb-1">
+          Description du processus
+        </h2>
+        <p>
+          1. Vous renseignez votre demande (type d'analyse, échantillons, documents, contraintes).
+        </p>
+        <p>
+          2. Après l'envoi, notre équipe étudie votre demande et génère une facture proforma détaillant les essais, les
+          délais et les montants associés. Cette proforma est téléchargeable depuis cette page et/ou votre espace client.
+        </p>
+        <p>
+          3. Une fois la proforma validée de votre côté et le paiement effectué selon les modalités prévues, la demande est
+          définitivement confirmée et planifiée par le laboratoire.
+        </p>
+        <p>
+          4. À l'issue des essais, une facture finale est émise et disponible dans votre espace client, accompagnée des
+          rapports et résultats correspondants.
+        </p>
       </div>
 
       {/* Stepper */}

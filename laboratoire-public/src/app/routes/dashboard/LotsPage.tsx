@@ -12,6 +12,7 @@ interface Lot {
   date_fabrication?: string
   date_peremption?: string
   date_ouverture?: string
+  quantite_attendue: number
   quantite_initiale: number
   quantite_restante: number
   unite: string
@@ -90,9 +91,8 @@ export function LotsPage() {
 
     try {
       await api.stock.quarantaines.create({
-        lot: quarantaineLot.id,
-        motif: quarantaineForm.motif,
-        description: quarantaineForm.description,
+        lot_id: quarantaineLot.id,
+        motif: `${quarantaineForm.motif}: ${quarantaineForm.description}`,
       })
       setToast({ message: 'Quarantaine créée', type: 'success' })
       setShowQuarantaineModal(false)
@@ -127,26 +127,26 @@ export function LotsPage() {
 
   const handleCreateTransfert = async () => {
     if (!transfertLot) return
+    
     if (!transfertForm.emplacement_destination || !transfertForm.quantite || !transfertForm.motif.trim()) {
       setToast({ message: 'Veuillez renseigner la destination, la quantité et le motif', type: 'error' })
       return
     }
 
-    if (!transfertLot.emplacement) {
-      setToast({ message: 'Ce lot n’a pas d’emplacement d’origine défini', type: 'error' })
-      return
-    }
-
     try {
+      // Créer un transfert (placement initial si pas d'emplacement source)
       await api.stock.transferts.create({
         lot: transfertLot.id,
-        emplacement_origine: transfertLot.emplacement,
+        emplacement_source: transfertLot.emplacement || null,
         emplacement_destination: transfertForm.emplacement_destination,
         quantite: Number(transfertForm.quantite),
         unite: transfertForm.unite || transfertLot.unite,
         motif: transfertForm.motif,
       })
-      setToast({ message: 'Transfert créé', type: 'success' })
+      setToast({ 
+        message: transfertLot.emplacement ? 'Transfert créé avec succès' : 'Placement initial effectué', 
+        type: 'success' 
+      })
       setShowTransfertModal(false)
       setTransfertLot(null)
       loadLots()
@@ -296,20 +296,25 @@ export function LotsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {lot.quantite_restante} / {lot.quantite_initiale} {lot.unite}
+                        {lot.quantite_initiale} / {lot.quantite_attendue || lot.quantite_initiale} {lot.unite}
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
                         <div
                           className={`h-2 rounded-full ${
-                            (lot.quantite_restante / lot.quantite_initiale) > 0.5
+                            (lot.quantite_initiale / (lot.quantite_attendue || lot.quantite_initiale)) >= 1
                               ? 'bg-emerald-500'
-                              : (lot.quantite_restante / lot.quantite_initiale) > 0.2
+                              : (lot.quantite_initiale / (lot.quantite_attendue || lot.quantite_initiale)) > 0.8
                               ? 'bg-amber-500'
                               : 'bg-rose-500'
                           }`}
-                          style={{ width: `${(lot.quantite_restante / lot.quantite_initiale) * 100}%` }}
+                          style={{ width: `${Math.min((lot.quantite_initiale / (lot.quantite_attendue || lot.quantite_initiale)) * 100, 100)}%` }}
                         />
                       </div>
+                      {lot.quantite_restante !== lot.quantite_initiale && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          Restant: {lot.quantite_restante} {lot.unite}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {lot.date_peremption ? (
@@ -408,9 +413,15 @@ export function LotsPage() {
                 </span>
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700">Quantité reçue / attendue</label>
+                <p className="mt-1 text-sm text-gray-900">
+                  {selectedLot.quantite_initiale} / {selectedLot.quantite_attendue || selectedLot.quantite_initiale} {selectedLot.unite}
+                </p>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700">Quantité restante</label>
                 <p className="mt-1 text-sm text-gray-900">
-                  {selectedLot.quantite_restante} / {selectedLot.quantite_initiale} {selectedLot.unite}
+                  {selectedLot.quantite_restante} {selectedLot.unite}
                 </p>
               </div>
               <div>
@@ -645,6 +656,7 @@ export function LotsPage() {
         <Toast
           message={toast.message}
           type={toast.type}
+          isVisible={true}
           onClose={() => setToast(null)}
         />
       )}

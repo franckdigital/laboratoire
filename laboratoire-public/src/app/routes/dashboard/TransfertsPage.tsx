@@ -146,8 +146,8 @@ export function TransfertsPage() {
                     <span className="text-sm text-gray-900">{transfert.quantite_transferee} {transfert.unite}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs rounded-full ${getStatutColor(transfert.statut)}`}>
-                      {transfert.statut.replace('_', ' ')}
+                    <span className={`px-2 py-1 text-xs rounded-full ${getStatutColor(transfert.statut || 'EN_ATTENTE')}`}>
+                      {(transfert.statut || 'EN_ATTENTE').replace('_', ' ')}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
@@ -209,8 +209,8 @@ export function TransfertsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Statut</label>
-                <span className={`mt-1 inline-block px-2 py-1 text-xs rounded-full ${getStatutColor(selectedTransfert.statut)}`}>
-                  {selectedTransfert.statut.replace('_', ' ')}
+                <span className={`mt-1 inline-block px-2 py-1 text-xs rounded-full ${getStatutColor(selectedTransfert.statut || 'EN_ATTENTE')}`}>
+                  {(selectedTransfert.statut || 'EN_ATTENTE').replace('_', ' ')}
                 </span>
               </div>
               <div>
@@ -329,6 +329,7 @@ export function TransfertsPage() {
         <Toast
           message={toast.message}
           type={toast.type}
+          isVisible={true}
           onClose={() => setToast(null)}
         />
       )}

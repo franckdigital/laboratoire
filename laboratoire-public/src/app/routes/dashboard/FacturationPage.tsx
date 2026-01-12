@@ -6,6 +6,7 @@ export function FacturationPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [activeTab, setActiveTab] = useState<'factures' | 'devis'>('factures')
+  const [proformas, setProformas] = useState<any[]>([])
   const [filterStatut, setFilterStatut] = useState('TOUS')
   const [editingFacture, setEditingFacture] = useState<any>(null)
   const [formData, setFormData] = useState({
@@ -21,8 +22,21 @@ export function FacturationPage() {
     notes: ''
   })
 
+  // Modal pour enregistrer un paiement (upload justificatif côté admin)
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false)
+  const [paymentTarget, setPaymentTarget] = useState<any>(null)
+  const [paymentMode, setPaymentMode] = useState<'CHEQUE' | 'COMPTANT'>('CHEQUE')
+  const [paymentFile, setPaymentFile] = useState<File | null>(null)
+  const [paymentReference, setPaymentReference] = useState('')
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false)
+
+  const [proofModalOpen, setProofModalOpen] = useState(false)
+  const [proofTarget, setProofTarget] = useState<any>(null)
+  const [proofValidatePending, setProofValidatePending] = useState(false)
+
   useEffect(() => {
     loadFactures()
+    loadProformas()
   }, [])
 
   const loadFactures = async () => {
@@ -32,6 +46,66 @@ export function FacturationPage() {
       setFactures(data.results || data || [])
     } catch (error) {
       console.error('Erreur chargement factures:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const openPaymentModal = (facture: any) => {
+    setPaymentTarget(facture)
+    setPaymentMode('CHEQUE')
+    setPaymentFile(null)
+    setPaymentReference('')
+    setPaymentModalOpen(true)
+  }
+
+  const openProofModal = (facture: any) => {
+    setProofTarget(facture)
+    setProofModalOpen(true)
+  }
+
+  const openProofModalForValidation = (facture: any) => {
+    setProofTarget(facture)
+    setProofValidatePending(true)
+    setProofModalOpen(true)
+  }
+
+  const getProofUrl = (facture: any) => {
+    return facture?.justificatif_paiement_url || facture?.justificatif_paiement || null
+  }
+
+  const isPdfUrl = (url: string) => {
+    return url.toLowerCase().includes('.pdf')
+  }
+
+  const handleSubmitPayment = async () => {
+    if (!paymentTarget || !paymentFile) return
+    try {
+      setIsSubmittingPayment(true)
+      await api.factures.pay(paymentTarget.id, {
+        mode_paiement: paymentMode,
+        justificatif: paymentFile,
+        reference: paymentReference || undefined,
+      })
+      setPaymentModalOpen(false)
+      setPaymentTarget(null)
+      setPaymentFile(null)
+      setPaymentReference('')
+      await loadFactures()
+    } catch (error) {
+      console.error('Erreur enregistrement paiement (admin):', error)
+    } finally {
+      setIsSubmittingPayment(false)
+    }
+  }
+
+  const loadProformas = async () => {
+    try {
+      setIsLoading(true)
+      const data = await api.proforma.list()
+      setProformas(data.results || data || [])
+    } catch (error) {
+      console.error('Erreur chargement proformas:', error)
     } finally {
       setIsLoading(false)
     }
@@ -56,10 +130,9 @@ export function FacturationPage() {
 
   const handleMarkAsPaid = async (factureId: string) => {
     try {
-      await api.factures.pay(factureId, {
-        date_paiement: new Date().toISOString().split('T')[0],
-        mode_paiement: 'VIREMENT'
-      })
+      // Validation comptable du paiement :
+      // le client a déjà déclaré son paiement et uploadé le justificatif.
+      await api.factures.validerPaiement(factureId)
       loadFactures()
     } catch (error) {
       console.error('Erreur marquage paiement:', error)
@@ -107,6 +180,7 @@ export function FacturationPage() {
   const statutBadgeColor = (statut: string) => {
     const colors: Record<string, string> = {
       'EN_ATTENTE': 'bg-amber-50 text-amber-700',
+      'EN_ATTENTE_VALIDATION': 'bg-sky-50 text-sky-700',
       'PAYEE': 'bg-emerald-50 text-emerald-700',
       'RETARD': 'bg-rose-50 text-rose-700',
       'ANNULEE': 'bg-slate-100 text-slate-500'
@@ -116,11 +190,14 @@ export function FacturationPage() {
 
   const filteredFactures = factures.filter(f => {
     if (filterStatut === 'TOUS') return true
+    if (filterStatut === 'EN_ATTENTE') {
+      return f.statut === 'EN_ATTENTE' || f.statut === 'EN_ATTENTE_VALIDATION'
+    }
     return f.statut === filterStatut
   })
 
-  const totalHT = filteredFactures.reduce((sum, f) => sum + (f.montant_ht || 0), 0)
-  const totalTTC = filteredFactures.reduce((sum, f) => sum + (f.montant_ttc || 0), 0)
+  const totalHT = filteredFactures.reduce((sum, f) => sum + (Number(f.montant_ht) || 0), 0)
+  const totalTTC = filteredFactures.reduce((sum, f) => sum + (Number(f.montant_ttc) || 0), 0)
 
   return (
     <div className="space-y-6">
@@ -256,6 +333,7 @@ export function FacturationPage() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Date échéance</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Montant TTC</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Statut</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Preuves paiement</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Actions</th>
                     </tr>
                   </thead>
@@ -284,6 +362,19 @@ export function FacturationPage() {
                              facture.statut === 'RETARD' ? 'En retard' : facture.statut}
                           </span>
                         </td>
+                        <td className="px-4 py-3 text-sm">
+                          {getProofUrl(facture) ? (
+                            <button
+                              type="button"
+                              onClick={() => openProofModal(facture)}
+                              className="text-sm text-lanema-blue-600 hover:text-lanema-blue-700 font-medium hover:underline"
+                            >
+                              Voir
+                            </button>
+                          ) : (
+                            <span className="text-xs text-slate-400">—</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <button 
@@ -294,11 +385,23 @@ export function FacturationPage() {
                             </button>
                             {facture.statut === 'EN_ATTENTE' && (
                               <button
-                                onClick={() => handleMarkAsPaid(facture.id)}
+                                onClick={() => openPaymentModal(facture)}
                                 className="text-sm text-emerald-600 hover:text-emerald-700 font-medium hover:underline"
                               >
-                                Marquer payée
+                                Enregistrer paiement
                               </button>
+                            )}
+                            {facture.statut === 'EN_ATTENTE_VALIDATION' && (
+                              getProofUrl(facture) ? (
+                                <button
+                                  onClick={() => openProofModalForValidation(facture)}
+                                  className="text-sm text-emerald-600 hover:text-emerald-700 font-medium hover:underline"
+                                >
+                                  Valider paiement
+                                </button>
+                              ) : (
+                                <span className="text-xs text-slate-500">Preuve requise</span>
+                              )
                             )}
                             {facture.pdf_url && (
                               <a
@@ -326,18 +429,216 @@ export function FacturationPage() {
       )}
 
       {activeTab === 'devis' && (
-        <div className="lanema-card p-12 text-center">
-          <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-1">Devis</h3>
-          <p className="text-sm text-slate-600">Gestion des devis à venir</p>
+        <div className="space-y-4">
+          {isLoading ? (
+            <div className="lanema-card p-6 animate-pulse">
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-14 bg-slate-200 rounded"></div>
+                ))}
+              </div>
+            </div>
+          ) : proformas.length === 0 ? (
+            <div className="lanema-card p-12 text-center">
+              <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-1">Aucun devis pour le moment</h3>
+              <p className="text-sm text-slate-600">Les devis seront générés automatiquement à partir des demandes de devis clients.</p>
+            </div>
+          ) : (
+            <div className="lanema-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Numéro</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Client</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Date émission</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Montant TTC</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Statut</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {proformas.map((p) => (
+                      <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50 transition">
+                        <td className="px-4 py-3 text-sm font-medium text-slate-900">{p.numero}</td>
+                        <td className="px-4 py-3 text-sm text-slate-700">{p.client_email}</td>
+                        <td className="px-4 py-3 text-sm text-slate-600">
+                          {p.date_emission ? new Date(p.date_emission).toLocaleDateString('fr-FR') : 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-semibold text-slate-900 text-right">
+                          {(p.montant_ttc || 0).toLocaleString('fr-FR')} {p.devise || 'FCFA'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-700">{p.statut}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal visualisation preuve paiement (client) */}
+      {proofModalOpen && proofTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Preuve de paiement</h3>
+                <p className="text-xs text-slate-500 mt-1">{proofTarget.numero}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setProofModalOpen(false)
+                  setProofTarget(null)
+                  setProofValidatePending(false)
+                }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6">
+              {(() => {
+                const url = getProofUrl(proofTarget)
+                if (!url) return null
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-end">
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-lanema-blue-600 hover:text-lanema-blue-700 font-medium"
+                      >
+                        Ouvrir dans un nouvel onglet
+                      </a>
+                    </div>
+
+                    <div className="border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
+                      {isPdfUrl(url) ? (
+                        <iframe title="preuve-paiement" src={url} className="w-full h-[70vh]" />
+                      ) : (
+                        <img src={url} alt="Preuve de paiement" className="w-full max-h-[70vh] object-contain" />
+                      )}
+                    </div>
+
+                    {proofValidatePending && proofTarget?.statut === 'EN_ATTENTE_VALIDATION' && (
+                      <div className="pt-3 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await handleMarkAsPaid(proofTarget.id)
+                            setProofModalOpen(false)
+                            setProofTarget(null)
+                            setProofValidatePending(false)
+                          }}
+                          className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition"
+                        >
+                          Valider paiement
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal enregistrement paiement (admin) */}
+      {paymentModalOpen && paymentTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-lg">
+            <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Enregistrer un paiement</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  {paymentTarget.numero} - {(paymentTarget.montant_ttc || 0).toLocaleString('fr-FR')} FCFA
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPaymentModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Mode de paiement</label>
+                <select
+                  value={paymentMode}
+                  onChange={(e) => setPaymentMode(e.target.value as 'CHEQUE' | 'COMPTANT')}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-lanema-blue-500"
+                >
+                  <option value="CHEQUE">Chèque</option>
+                  <option value="COMPTANT">Comptant</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Justificatif de paiement</label>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null
+                    setPaymentFile(file)
+                  }}
+                  className="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-lanema-blue-50 file:text-lanema-blue-700 hover:file:bg-lanema-blue-100 cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Référence de paiement (optionnelle)</label>
+                <input
+                  type="text"
+                  value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-lanema-blue-500"
+                  placeholder="Ex: Réf virement, numéro de chèque..."
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setPaymentModalOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+                  disabled={isSubmittingPayment}
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmitPayment}
+                  disabled={isSubmittingPayment || !paymentFile}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmittingPayment ? 'Enregistrement...' : 'Enregistrer le paiement'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal création/édition de facture */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">

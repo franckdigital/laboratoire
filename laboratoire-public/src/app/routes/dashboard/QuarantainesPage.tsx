@@ -368,6 +368,7 @@ export function QuarantainesPage() {
         <Toast
           message={toast.message}
           type={toast.type}
+          isVisible={true}
           onClose={() => setToast(null)}
         />
       )}

@@ -1,10 +1,26 @@
 import { useState, useEffect } from 'react'
 import api from '../../../services/api'
+import { Toast } from '../../../components/Toast'
+import { Modal } from '../../../components/Modal'
 
 export function ClientFacturesPage() {
   const [filter, setFilter] = useState<'toutes' | 'payees' | 'en_attente'>('toutes')
   const [factures, setFactures] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+
+  const [paiementMode, setPaiementMode] = useState<Record<string, 'CHEQUE' | 'COMPTANT'>>({})
+  const [paiementFile, setPaiementFile] = useState<Record<string, File | null>>({})
+  const [paiementReference, setPaiementReference] = useState<Record<string, string>>({})
+  const [isPaying, setIsPaying] = useState<Record<string, boolean>>({})
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
+
+  // Modal global d'enregistrement de paiement
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false)
+  const [selectedFactureIds, setSelectedFactureIds] = useState<string[]>([])
+  const [globalPaymentMode, setGlobalPaymentMode] = useState<'CHEQUE' | 'COMPTANT'>('CHEQUE')
+  const [globalPaymentFile, setGlobalPaymentFile] = useState<File | null>(null)
+  const [globalPaymentReference, setGlobalPaymentReference] = useState('')
+  const [isSubmittingGlobalPayment, setIsSubmittingGlobalPayment] = useState(false)
 
   useEffect(() => {
     loadFactures()
@@ -22,52 +38,21 @@ export function ClientFacturesPage() {
     }
   }
 
-  const mockFactures = [
-    {
-      id: '1',
-      numero: 'FACT-2024-0156',
-      date_emission: '2024-11-25',
-      date_echeance: '2024-12-25',
-      montant_ht: 450000,
-      montant_ttc: 531000,
-      statut: 'PAYEE',
-      date_paiement: '2024-11-28',
-      demandes: ['DA-20241120-0015'],
-    },
-    {
-      id: '2',
-      numero: 'FACT-2024-0157',
-      date_emission: '2024-11-26',
-      date_echeance: '2024-12-26',
-      montant_ht: 680000,
-      montant_ttc: 802400,
-      statut: 'EN_ATTENTE',
-      date_paiement: null,
-      demandes: ['DA-20241125-0019'],
-    },
-    {
-      id: '3',
-      numero: 'FACT-2024-0154',
-      date_emission: '2024-11-15',
-      date_echeance: '2024-12-15',
-      montant_ht: 550000,
-      montant_ttc: 649000,
-      statut: 'RETARD',
-      date_paiement: null,
-      demandes: ['DA-20241110-0012', 'DA-20241112-0014'],
-    },
-    {
-      id: '4',
-      numero: 'FACT-2024-0155',
-      date_emission: '2024-11-20',
-      date_echeance: '2024-12-20',
-      montant_ht: 890000,
-      montant_ttc: 1050200,
-      statut: 'PAYEE',
-      date_paiement: '2024-11-22',
-      demandes: ['DA-20241115-0013'],
-    },
-  ]
+  const telechargerFacture = async (factureId: string) => {
+    try {
+      await api.factures.telechargerPDF(factureId)
+      setToast({
+        message: 'Téléchargement du PDF en cours...',
+        type: 'success',
+      })
+    } catch (error) {
+      console.error('Erreur téléchargement facture:', error)
+      setToast({
+        message: 'Erreur lors du téléchargement de la facture',
+        type: 'error',
+      })
+    }
+  }
 
   const formatMontant = (montant: number) => {
     return new Intl.NumberFormat('fr-FR').format(montant) + ' XAF'
@@ -75,17 +60,27 @@ export function ClientFacturesPage() {
 
   const statutColor = (statut: string) => {
     const colors: Record<string, string> = {
-      'PAYEE': 'bg-emerald-50 text-emerald-700',
-      'EN_ATTENTE': 'bg-amber-50 text-amber-700',
-      'RETARD': 'bg-rose-50 text-rose-700',
-      'ANNULEE': 'bg-slate-100 text-slate-500',
+      'EN_ATTENTE': 'bg-amber-100 text-amber-800',
+      'PAYEE': 'bg-emerald-100 text-emerald-800',
+      'RETARD': 'bg-rose-100 text-rose-800',
+      'EN_ATTENTE_VALIDATION': 'bg-blue-100 text-blue-800',
     }
     return colors[statut] || 'bg-slate-100 text-slate-600'
   }
 
+  const getStatutLabel = (statut: string) => {
+    const labels: Record<string, string> = {
+      'EN_ATTENTE': 'En attente de paiement',
+      'PAYEE': 'Payée',
+      'RETARD': 'En retard',
+      'EN_ATTENTE_VALIDATION': 'En attente de validation',
+    }
+    return labels[statut] || statut.replace(/_/g, ' ')
+  }
+
   const filteredFactures = factures.filter(f => {
     if (filter === 'payees') return f.statut === 'PAYEE'
-    if (filter === 'en_attente') return f.statut === 'EN_ATTENTE' || f.statut === 'RETARD'
+    if (filter === 'en_attente') return f.statut === 'EN_ATTENTE' || f.statut === 'RETARD' || f.statut === 'EN_ATTENTE_VALIDATION'
     return true
   })
 
@@ -95,13 +90,155 @@ export function ClientFacturesPage() {
 
   return (
     <div className="space-y-6">
+      <Modal
+        isOpen={paymentModalOpen}
+        onClose={() => {
+          if (isSubmittingGlobalPayment) return
+          setPaymentModalOpen(false)
+        }}
+        title="Enregistrer un paiement"
+        maxWidth="lg"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-slate-700">
+            Sélectionnez les factures à régler, puis téléversez votre justificatif de paiement. Votre demande sera
+            transmise au service comptabilité pour validation.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Mode de paiement</label>
+              <select
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-lanema-blue-500"
+                value={globalPaymentMode}
+                onChange={(e) => setGlobalPaymentMode(e.target.value as 'CHEQUE' | 'COMPTANT')}
+              >
+                <option value="CHEQUE">Chèque</option>
+                <option value="COMPTANT">Comptant</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Justificatif ({globalPaymentMode === 'CHEQUE' ? 'photo du chèque' : 'reçu de paiement'})
+              </label>
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null
+                  setGlobalPaymentFile(file)
+                }}
+                className="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-lanema-blue-50 file:text-lanema-blue-700 hover:file:bg-lanema-blue-100 cursor-pointer"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Référence de paiement (optionnelle)</label>
+            <input
+              type="text"
+              value={globalPaymentReference}
+              onChange={(e) => setGlobalPaymentReference(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-lanema-blue-500"
+              placeholder="Ex: Réf virement, numéro de chèque..."
+            />
+          </div>
+
+          <div>
+            <div className="text-xs font-medium text-slate-600 mb-2">Factures à associer</div>
+            <div className="max-h-60 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
+              {factures
+                .filter(f => f.statut === 'EN_ATTENTE' || f.statut === 'RETARD')
+                .map(f => (
+                  <label key={f.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        className="rounded border-slate-300 text-lanema-blue-600 focus:ring-lanema-blue-500"
+                        checked={selectedFactureIds.includes(f.id)}
+                        onChange={(e) => {
+                          const checked = e.target.checked
+                          setSelectedFactureIds(prev =>
+                            checked ? [...prev, f.id] : prev.filter(id => id !== f.id)
+                          )
+                        }}
+                      />
+                      <span className="font-medium text-slate-800">{f.numero}</span>
+                    </div>
+                    <span className="text-xs text-slate-600">{formatMontant(f.montant_ttc)}</span>
+                  </label>
+                ))}
+              {factures.filter(f => f.statut === 'EN_ATTENTE' || f.statut === 'RETARD').length === 0 && (
+                <div className="px-3 py-4 text-xs text-slate-500 text-center">
+                  Vous n'avez actuellement aucune facture en attente de paiement.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="pt-2 flex justify-end gap-2">
+            <button
+              type="button"
+              className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+              disabled={isSubmittingGlobalPayment}
+              onClick={() => setPaymentModalOpen(false)}
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={
+                isSubmittingGlobalPayment ||
+                !globalPaymentFile ||
+                selectedFactureIds.length === 0
+              }
+              onClick={async () => {
+                if (!globalPaymentFile || selectedFactureIds.length === 0) return
+                try {
+                  setIsSubmittingGlobalPayment(true)
+                  for (const id of selectedFactureIds) {
+                    await api.factures.pay(id, {
+                      mode_paiement: globalPaymentMode,
+                      justificatif: globalPaymentFile,
+                      reference: globalPaymentReference,
+                    })
+                  }
+                  await loadFactures()
+                  setToast({
+                    message: 'Votre justificatif de paiement a bien été envoyé et sera vérifié par la comptabilité.',
+                    type: 'success',
+                  })
+                  setPaymentModalOpen(false)
+                  setSelectedFactureIds([])
+                  setGlobalPaymentFile(null)
+                  setGlobalPaymentReference('')
+                } catch (error) {
+                  console.error('Erreur lors de l\'enregistrement du paiement global:', error)
+                  setToast({
+                    message: "Erreur lors de l'enregistrement du paiement. Veuillez réessayer.",
+                    type: 'error',
+                  })
+                } finally {
+                  setIsSubmittingGlobalPayment(false)
+                }
+              }}
+            >
+              {isSubmittingGlobalPayment ? 'Envoi en cours...' : 'Envoyer le paiement'}
+            </button>
+          </div>
+        </div>
+      </Modal>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Mes factures</h1>
           <p className="text-sm text-slate-600 mt-1">Gérez vos factures et paiements</p>
         </div>
-        <button className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition">
+        <button
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition"
+          onClick={() => setPaymentModalOpen(true)}
+        >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -165,7 +302,7 @@ export function ClientFacturesPage() {
                 : 'text-slate-600 hover:bg-slate-50'
             }`}
           >
-            En attente ({factures.filter(f => f.statut === 'EN_ATTENTE' || f.statut === 'RETARD').length})
+            En attente ({factures.filter(f => f.statut === 'EN_ATTENTE' || f.statut === 'RETARD' || f.statut === 'EN_ATTENTE_VALIDATION').length})
           </button>
           <button
             onClick={() => setFilter('payees')}
@@ -204,7 +341,7 @@ export function ClientFacturesPage() {
       ) : (
         <div className="space-y-4">
         {filteredFactures.map((facture) => (
-          <div key={facture.id} className="lanema-card p-6 hover:shadow-md transition">
+          <div key={facture.id} id={`facture-${facture.id}`} className="lanema-card p-6 hover:shadow-md transition">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-start gap-4">
                 <div className="w-12 h-12 rounded-lg bg-lanema-blue-50 flex items-center justify-center">
@@ -218,14 +355,16 @@ export function ClientFacturesPage() {
                     <span>Émise le {facture.date_emission ? new Date(facture.date_emission).toLocaleDateString('fr-FR') : 'N/A'}</span>
                     <span>• Échéance: {facture.date_echeance ? new Date(facture.date_echeance).toLocaleDateString('fr-FR') : 'N/A'}</span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                    <span>Demandes:</span>
-                    {facture.demandes.map((d, i) => (
-                      <span key={i} className="px-2 py-0.5 rounded bg-slate-100 font-medium">
-                        {d}
-                      </span>
-                    ))}
-                  </div>
+                  {Array.isArray(facture.demandes) && facture.demandes.length > 0 && (
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                      <span>Demandes:</span>
+                      {facture.demandes.map((d: any, i: number) => (
+                        <span key={i} className="px-2 py-0.5 rounded bg-slate-100 font-medium">
+                          {typeof d === 'string' ? d : d.numero || d.id || 'Demande'}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="text-right">
@@ -235,8 +374,8 @@ export function ClientFacturesPage() {
                 <div className="text-xs text-slate-500 mb-2">
                   HT: {formatMontant(facture.montant_ht)}
                 </div>
-                <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${statutColor(facture.statut)}`}>
-                  {facture.statut.replace('_', ' ')}
+                <span className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-full ${statutColor(facture.statut)}`}>
+                  {getStatutLabel(facture.statut)}
                 </span>
               </div>
             </div>
@@ -264,23 +403,113 @@ export function ClientFacturesPage() {
             )}
 
             <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-              <div className="flex items-center gap-2">
-                {facture.statut === 'EN_ATTENTE' && (
-                  <button className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition">
-                    Payer maintenant
-                  </button>
+              <div className="flex-1 mr-4">
+                {(facture.statut === 'EN_ATTENTE' || facture.statut === 'RETARD') ? (
+                  <div className="space-y-3">
+                    <div className="space-y-3 bg-amber-50 p-4 rounded-lg border border-amber-100">
+                      <div className="flex items-start gap-2">
+                        <svg className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div>
+                          <div className="text-sm font-medium text-amber-800">Paiement en attente</div>
+                          <p className="text-xs text-amber-700 mt-1">
+                            Veuillez procéder au règlement de cette facture avant la date d'échéance.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-sm font-medium text-slate-800">Règler cette facture</div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-center">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Mode de paiement</label>
+                          <select
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-lanema-blue-500"
+                            value={paiementMode[facture.id] || 'CHEQUE'}
+                            onChange={(e) => setPaiementMode(prev => ({ ...prev, [facture.id]: e.target.value as 'CHEQUE' | 'COMPTANT' }))}
+                          >
+                            <option value="CHEQUE">Chèque</option>
+                            <option value="COMPTANT">Comptant</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">
+                            Justificatif ({(paiementMode[facture.id] || 'CHEQUE') === 'CHEQUE' ? 'photo du chèque' : 'reçu de paiement'})
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] || null
+                              setPaiementFile(prev => ({ ...prev, [facture.id]: file }))
+                            }}
+                            className="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-lanema-blue-50 file:text-lanema-blue-700 hover:file:bg-lanema-blue-100 cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Référence de paiement (optionnelle)</label>
+                        <input
+                          type="text"
+                          value={paiementReference[facture.id] || ''}
+                          onChange={(e) => setPaiementReference(prev => ({ ...prev, [facture.id]: e.target.value }))}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-lanema-blue-500"
+                          placeholder="Ex: Réf virement, numéro de chèque..."
+                        />
+                      </div>
+                      <button
+                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={!paiementFile[facture.id] || isPaying[facture.id]}
+                        onClick={async () => {
+                          const file = paiementFile[facture.id]
+                          const mode = paiementMode[facture.id] || 'CHEQUE'
+                          if (!file) return
+                          try {
+                            setIsPaying(prev => ({ ...prev, [facture.id]: true }))
+                            await api.factures.pay(facture.id, {
+                              mode_paiement: mode,
+                              justificatif: file,
+                              reference: paiementReference[facture.id]
+                            })
+                            await loadFactures()
+                            setToast({
+                              message: 'Votre justificatif de paiement a bien été envoyé et sera vérifié par la comptabilité.',
+                              type: 'success',
+                            })
+                          } catch (error) {
+                            console.error('Erreur lors de l\'enregistrement du paiement:', error)
+                            setToast({
+                              message: "Erreur lors de l'enregistrement du paiement. Veuillez réessayer.",
+                              type: 'error',
+                            })
+                          } finally {
+                            setIsPaying(prev => ({ ...prev, [facture.id]: false }))
+                          }
+                        }}
+                      >
+                        {isPaying[facture.id] ? 'Envoi en cours...' : 'Envoyer le paiement'}
+                      </button>
+                    </div>
+                  </div>
+                ) : facture.statut === 'EN_ATTENTE_VALIDATION' ? (
+                  <div className="p-3 rounded-lg bg-sky-50 border border-sky-100 text-xs text-sky-800">
+                    Votre justificatif de paiement a été transmis. Il est en cours de validation par le service comptabilité.
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <button className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition">
+                      Détails
+                    </button>
+                    <button 
+                      onClick={() => telechargerFacture(facture.id)}
+                      className="px-3 py-1.5 text-xs font-medium text-white bg-lanema-blue-600 hover:bg-lanema-blue-700 rounded-lg transition flex items-center gap-1.5"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Télécharger PDF
+                    </button>
+                  </div>
                 )}
-              </div>
-              <div className="flex items-center gap-2">
-                <button className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition">
-                  Détails
-                </button>
-                <button className="px-3 py-1.5 text-xs font-medium text-white bg-lanema-blue-600 hover:bg-lanema-blue-700 rounded-lg transition flex items-center gap-1.5">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Télécharger PDF
-                </button>
               </div>
             </div>
           </div>
@@ -288,16 +517,13 @@ export function ClientFacturesPage() {
         </div>
       )}
 
-      {!isLoading && filteredFactures.length === 0 && (
-        <div className="lanema-card p-12 text-center">
-          <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-1">Aucune facture</h3>
-          <p className="text-sm text-slate-600">Vous n'avez aucune facture dans cette catégorie</p>
-        </div>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          isVisible={true}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   )

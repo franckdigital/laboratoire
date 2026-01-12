@@ -7,13 +7,13 @@ export function HomePage() {
       <section className="max-w-6xl mx-auto px-6 py-12 grid gap-10 md:grid-cols-[1.1fr_0.9fr] items-center">
         <div>
           <p className="text-xs font-semibold tracking-[0.25em] text-lanema-blue-600 uppercase mb-3">
-            Laboratoire national d&apos;essais
+            LAB MANAGER
           </p>
           <h1 className="text-3xl md:text-4xl font-semibold text-slate-900 mb-4">
-            Une plateforme unifiée pour gérer l&apos;ensemble des activités du LANEMA
+            Une plateforme unifiée pour gérer l&apos;ensemble des activités d'un laboratoire
           </h1>
           <p className="text-sm text-slate-600 mb-6 leading-relaxed max-w-xl">
-            Du dépôt des échantillons jusqu&apos;au rapport final et à la facturation, la plateforme LANEMA
+            Du dépôt des échantillons jusqu&apos;au rapport final et à la facturation, la plateforme LAB MANAGER
             centralise les données, facilite le suivi qualité et permet une traçabilité complète.
           </p>
           <div className="flex flex-wrap gap-3 mb-8">
@@ -23,12 +23,12 @@ export function HomePage() {
             >
               Accéder au portail
             </Link>
-            <a
-              href="#modules"
+            <Link
+              to="/process-devis"
               className="inline-flex items-center rounded-full px-5 py-2.5 text-sm font-semibold text-lanema-blue-700 bg-lanema-blue-50 hover:bg-lanema-blue-100 border border-lanema-blue-100 transition"
             >
-              Découvrir les modules
-            </a>
+              Comment faire une demande de devis
+            </Link>
           </div>
 
           <div className="grid grid-cols-2 gap-4 text-xs text-slate-600">
@@ -49,26 +49,13 @@ export function HomePage() {
 
         <div className="space-y-4">
           <div className="lanema-card p-5">
-            <div className="text-xs font-semibold text-slate-500 mb-3 uppercase tracking-wide">
-              Vue synthétique
-            </div>
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div>
-                <div className="text-[11px] text-slate-500 mb-1">Échantillons en cours</div>
-                <div className="text-2xl font-semibold text-lanema-blue-700">128</div>
-              </div>
-              <div>
-                <div className="text-[11px] text-slate-500 mb-1">Essais planifiés</div>
-                <div className="text-2xl font-semibold text-lanema-blue-700">54</div>
-              </div>
-              <div>
-                <div className="text-[11px] text-slate-500 mb-1">NC ouvertes</div>
-                <div className="text-2xl font-semibold text-amber-600">7</div>
-              </div>
-              <div>
-                <div className="text-[11px] text-slate-500 mb-1">Taux de conformité</div>
-                <div className="text-2xl font-semibold text-emerald-600">98%</div>
-              </div>
+            <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
+              <img
+                src="/labo.jpg"
+                alt="Laboratoire"
+                className="w-full h-64 object-cover"
+                loading="lazy"
+              />
             </div>
           </div>
 
@@ -77,7 +64,7 @@ export function HomePage() {
               Modules couverts
             </div>
             <ul className="grid grid-cols-2 gap-2 text-xs text-slate-600">
-              <li>• Clients</li>
+              <li>• Demande de devis</li>
               <li>• Échantillons</li>
               <li>• Essais</li>
               <li>• Métrologie</li>

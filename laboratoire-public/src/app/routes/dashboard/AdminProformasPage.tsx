@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import api from '../../../services/api'
+import { Modal } from '../../../components/Modal'
+import { AlertModal } from '../../../components/AlertModal'
 
 export function AdminProformasPage() {
   const [proformas, setProformas] = useState<any[]>([])
@@ -7,12 +9,21 @@ export function AdminProformasPage() {
   const [filter, setFilter] = useState<'tous' | 'brouillon' | 'en_revision' | 'validee'>('brouillon')
   const [showAdjustModal, setShowAdjustModal] = useState(false)
   const [selectedProforma, setSelectedProforma] = useState<any>(null)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [proformaToValidate, setProformaToValidate] = useState<any>(null)
+  const [isValidating, setIsValidating] = useState(false)
   const [ajustData, setAjustData] = useState({
     montant_ht: '',
     montant_tva: '',
     montant_ttc: '',
     notes_revision: ''
   })
+
+  // Modal global de feedback (succès / erreur)
+  const [alertOpen, setAlertOpen] = useState(false)
+  const [alertTitle, setAlertTitle] = useState('')
+  const [alertMessage, setAlertMessage] = useState('')
+  const [alertType, setAlertType] = useState<'success' | 'warning' | 'danger' | 'info'>('info')
 
   useEffect(() => {
     loadProformas()
@@ -30,16 +41,32 @@ export function AdminProformasPage() {
     }
   }
 
-  const validerProforma = async (proforma: any) => {
-    if (!confirm(`Valider la proforma ${proforma.numero}?`)) return
+  const openConfirmModal = (proforma: any) => {
+    setProformaToValidate(proforma)
+    setShowConfirmModal(true)
+  }
+
+  const handleConfirmValidation = async () => {
+    if (!proformaToValidate) return
+    setIsValidating(true)
 
     try {
-      await api.proforma.valider(proforma.id, 'Proforma validée par l\'administrateur')
-      alert('Proforma validée avec succès!')
+      await api.proforma.valider(proformaToValidate.id, "Proforma validée par l'administrateur")
+      setShowConfirmModal(false)
+      setProformaToValidate(null)
       loadProformas()
+      setAlertTitle('Proforma validée')
+      setAlertMessage('La proforma a été validée et sera visible dans l\'espace client.')
+      setAlertType('success')
+      setAlertOpen(true)
     } catch (error: any) {
       console.error('Erreur validation:', error)
-      alert(error.message || 'Erreur lors de la validation')
+      setAlertTitle('Erreur de validation')
+      setAlertMessage(error.message || 'Erreur lors de la validation (vérifiez que l\'endpoint /valider/ existe côté backend).')
+      setAlertType('danger')
+      setAlertOpen(true)
+    } finally {
+      setIsValidating(false)
     }
   }
 
@@ -54,6 +81,49 @@ export function AdminProformasPage() {
     setShowAdjustModal(true)
   }
 
+  const parseAmount = (value: string) => {
+    const n = parseFloat(String(value).replace(',', '.'))
+    return Number.isFinite(n) ? n : 0
+  }
+
+  const formatAmount = (value: number) => {
+    if (!Number.isFinite(value)) return ''
+    return value.toFixed(2)
+  }
+
+  const handleChangeHT = (value: string) => {
+    const ht = parseAmount(value)
+    const tva = parseAmount(ajustData.montant_tva)
+    const ttc = ht + tva
+    setAjustData(prev => ({
+      ...prev,
+      montant_ht: value,
+      montant_ttc: formatAmount(ttc),
+    }))
+  }
+
+  const handleChangeTVA = (value: string) => {
+    const ht = parseAmount(ajustData.montant_ht)
+    const tva = parseAmount(value)
+    const ttc = ht + tva
+    setAjustData(prev => ({
+      ...prev,
+      montant_tva: value,
+      montant_ttc: formatAmount(ttc),
+    }))
+  }
+
+  const handleChangeTTC = (value: string) => {
+    const ht = parseAmount(ajustData.montant_ht)
+    const ttc = parseAmount(value)
+    const tva = ttc - ht
+    setAjustData(prev => ({
+      ...prev,
+      montant_ttc: value,
+      montant_tva: formatAmount(tva),
+    }))
+  }
+
   const handleAdjustSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -66,12 +136,18 @@ export function AdminProformasPage() {
         montant_ttc: parseFloat(ajustData.montant_ttc),
         notes_revision: ajustData.notes_revision
       })
-      alert('Montants ajustés avec succès!')
       setShowAdjustModal(false)
       loadProformas()
+      setAlertTitle('Montants ajustés')
+      setAlertMessage('Les montants de la proforma ont été mis à jour avec succès.')
+      setAlertType('success')
+      setAlertOpen(true)
     } catch (error: any) {
       console.error('Erreur ajustement:', error)
-      alert(error.message || 'Erreur lors de l\'ajustement')
+      setAlertTitle('Erreur lors de l\'ajustement')
+      setAlertMessage(error.message || 'Une erreur est survenue lors de l\'ajustement des montants.')
+      setAlertType('danger')
+      setAlertOpen(true)
     }
   }
 
@@ -96,6 +172,17 @@ export function AdminProformasPage() {
 
   return (
     <div className="space-y-6">
+      {/* Modal global de feedback */}
+      <AlertModal
+        isOpen={alertOpen}
+        onClose={() => setAlertOpen(false)}
+        onConfirm={() => setAlertOpen(false)}
+        title={alertTitle || 'Information'}
+        message={alertMessage || ''}
+        type={alertType}
+        confirmText="OK"
+        cancelText="Fermer"
+      />
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Gestion des Proformas</h1>
@@ -205,16 +292,21 @@ export function AdminProformasPage() {
                   </div>
                   <div className="text-sm text-slate-600 space-y-1">
                     <p>Client: {proforma.client_raison_sociale || proforma.client}</p>
-                    <p>Date émission: {new Date(proforma.date_emission).toLocaleDateString('fr-FR')}</p>
-                    <p>Date validité: {new Date(proforma.date_validite).toLocaleDateString('fr-FR')}</p>
+                    <p>Date émission: {proforma.date_emission ? new Date(proforma.date_emission).toLocaleDateString('fr-FR') : 'Non définie'}</p>
+                    <p>Date validité: {proforma.date_validite ? new Date(proforma.date_validite).toLocaleDateString('fr-FR') : 'Non définie'}</p>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="text-2xl font-bold text-slate-900">
-                    {Number(proforma.montant_ttc).toLocaleString('fr-FR')} FCFA
+                    {Number(proforma.montant_ttc || 0).toLocaleString('fr-FR')} FCFA
                   </div>
                   <div className="text-xs text-slate-500 mt-1">
-                    HT: {Number(proforma.montant_ht).toLocaleString('fr-FR')} | TVA: {Number(proforma.montant_tva).toLocaleString('fr-FR')}
+                    {(() => {
+                      const ht = Number(proforma.montant_ht || 0)
+                      const ttc = Number(proforma.montant_ttc || 0)
+                      const tva = proforma.montant_tva != null ? Number(proforma.montant_tva) : ttc - ht
+                      return `HT: ${ht.toLocaleString('fr-FR')} | TVA: ${tva.toLocaleString('fr-FR')}`
+                    })()}
                   </div>
                 </div>
               </div>
@@ -230,7 +322,7 @@ export function AdminProformasPage() {
                       ✏️ Ajuster montants
                     </button>
                     <button
-                      onClick={() => validerProforma(proforma)}
+                      onClick={() => openConfirmModal(proforma)}
                       className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition"
                     >
                       ✅ Valider
@@ -253,6 +345,55 @@ export function AdminProformasPage() {
         </div>
       )}
 
+      {/* Modal de confirmation de validation */}
+      {showConfirmModal && proformaToValidate && (
+        <Modal
+          isOpen={showConfirmModal}
+          onClose={() => {
+            if (!isValidating) {
+              setShowConfirmModal(false)
+              setProformaToValidate(null)
+            }
+          }}
+          title="Valider la proforma"
+          maxWidth="md"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-slate-700">
+              Vous êtes sur le point de <span className="font-semibold">valider</span> la proforma
+              <span className="font-semibold"> {proformaToValidate.numero}</span> pour le client
+              <span className="font-semibold"> {proformaToValidate.client_raison_sociale || proformaToValidate.client}</span>.
+            </p>
+            <p className="text-sm text-slate-600">
+              Une fois validée, elle sera disponible pour le client dans son espace pour acceptation.
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isValidating) {
+                    setShowConfirmModal(false)
+                    setProformaToValidate(null)
+                  }
+                }}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+                disabled={isValidating}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmValidation}
+                className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition disabled:opacity-60"
+                disabled={isValidating}
+              >
+                {isValidating ? 'Validation en cours...' : 'Confirmer la validation'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {/* Modal d'ajustement */}
       {showAdjustModal && selectedProforma && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -271,7 +412,7 @@ export function AdminProformasPage() {
                   type="number"
                   step="0.01"
                   value={ajustData.montant_ht}
-                  onChange={(e) => setAjustData({ ...ajustData, montant_ht: e.target.value })}
+                  onChange={(e) => handleChangeHT(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-lanema-blue-500"
                   required
                 />
@@ -285,7 +426,7 @@ export function AdminProformasPage() {
                   type="number"
                   step="0.01"
                   value={ajustData.montant_tva}
-                  onChange={(e) => setAjustData({ ...ajustData, montant_tva: e.target.value })}
+                  onChange={(e) => handleChangeTVA(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-lanema-blue-500"
                   required
                 />
@@ -299,7 +440,7 @@ export function AdminProformasPage() {
                   type="number"
                   step="0.01"
                   value={ajustData.montant_ttc}
-                  onChange={(e) => setAjustData({ ...ajustData, montant_ttc: e.target.value })}
+                  onChange={(e) => handleChangeTTC(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-lanema-blue-500"
                   required
                 />

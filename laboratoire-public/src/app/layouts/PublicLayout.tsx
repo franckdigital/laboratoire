@@ -9,12 +9,12 @@ export function PublicLayout({ children }: PropsWithChildren) {
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full border border-white/60 flex items-center justify-center">
-              <span className="text-lg font-semibold">L</span>
+              <span className="text-lg font-semibold">LM</span>
             </div>
             <div>
-              <div className="text-xl font-semibold tracking-[0.25em] uppercase">LANEMA</div>
+              <div className="text-xl font-semibold tracking-[0.25em] uppercase">LAB MANAGER</div>
               <p className="text-[11px] opacity-80 leading-tight">
-                Laboratoire National d&apos;Essais de Qualité, de Métrologie et d&apos;Analyses
+                Plateforme unifiée de gestion de l'ensemble des activités d'un laboratoire
               </p>
             </div>
           </div>
@@ -37,7 +37,7 @@ export function PublicLayout({ children }: PropsWithChildren) {
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white/80 backdrop-blur-sm text-xs text-slate-500">
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
-          <span>© {new Date().getFullYear()} LANEMA LAB MANAGER. Tous droits réservés.</span>
+          <span>© {new Date().getFullYear()} LAB MANAGER. Tous droits réservés.</span>
           <span>Plateforme de gestion de laboratoire</span>
         </div>
       </footer>

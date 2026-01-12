@@ -10,6 +10,8 @@ export function EchantillonsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatut, setFilterStatut] = useState('TOUS')
   const [editingEchantillon, setEditingEchantillon] = useState<any>(null)
+  const [demandeSearch, setDemandeSearch] = useState('')
+  const [showDemandeDropdown, setShowDemandeDropdown] = useState(false)
   const [formData, setFormData] = useState({
     code_echantillon: '',
     designation: '',
@@ -42,7 +44,7 @@ export function EchantillonsPage() {
 
   const loadTypesEchantillon = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/echantillons/types-simple/`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/demandes/types-analyse/`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('lanema_token')}`
         }
@@ -58,7 +60,7 @@ export function EchantillonsPage() {
 
   const loadDemandes = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/echantillons/demandes-simple/`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/demandes/demandes-simple/`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('lanema_token')}`
         }
@@ -96,14 +98,21 @@ export function EchantillonsPage() {
     setFormData({
       code_echantillon: echantillon.code_echantillon || '',
       designation: echantillon.designation || '',
-      type_echantillon: echantillon.type_echantillon?.id || '',
+      type_echantillon: echantillon.type_echantillon?.nom || echantillon.type_echantillon || '',
       statut: echantillon.statut || 'RECEPTIONNE',
       emplacement_stockage: echantillon.emplacement_stockage || '',
       date_reception: echantillon.date_reception || new Date().toISOString().split('T')[0],
-      demande: echantillon.demande?.id || '',
+      demande: echantillon.demande || '',
       quantite: echantillon.quantite || '',
       description: echantillon.description || ''
     })
+    // Set demande search text for edit mode
+    const demandeLabel =
+      echantillon.demande_numero ||
+      (typeof echantillon.demande === 'object'
+        ? (echantillon.demande.label || `${echantillon.demande.numero} - ${echantillon.demande.type_analyse}`)
+        : '')
+    setDemandeSearch(demandeLabel || '')
     setShowModal(true)
   }
 
@@ -119,6 +128,8 @@ export function EchantillonsPage() {
       quantite: '',
       description: ''
     })
+    setDemandeSearch('')
+    setShowDemandeDropdown(false)
   }
 
   const statutBadgeColor = (statut: string) => {
@@ -369,8 +380,8 @@ export function EchantillonsPage() {
                     >
                       <option value="">Sélectionner un type</option>
                       {typesEchantillon.map(type => (
-                        <option key={type.id} value={type.id}>
-                          {type.code} - {type.nom}
+                        <option key={type.id} value={type.nom}>
+                          {type.nom}
                         </option>
                       ))}
                     </select>
@@ -403,23 +414,53 @@ export function EchantillonsPage() {
                     />
                   </div>
 
-                  <div>
+                  <div className="relative">
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Demande d'analyse *
                     </label>
-                    <select
-                      value={formData.demande}
-                      onChange={(e) => setFormData({...formData, demande: e.target.value})}
+                    <input
+                      type="text"
+                      value={demandeSearch}
+                      onChange={(e) => {
+                        setDemandeSearch(e.target.value)
+                        setShowDemandeDropdown(true)
+                      }}
+                      onFocus={() => setShowDemandeDropdown(true)}
                       className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lanema-blue-500"
-                      required
-                    >
-                      <option value="">Sélectionner une demande</option>
-                      {demandes.map(demande => (
-                        <option key={demande.id} value={demande.id}>
-                          {demande.numero} | {demande.client_email} | {demande.categorie}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="Rechercher une demande..."
+                    />
+                    {showDemandeDropdown && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-slate-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {demandes
+                          .filter(d => {
+                            const label = d.label || `${d.numero} - ${d.type_analyse}`
+                            return label.toLowerCase().includes(demandeSearch.toLowerCase())
+                          })
+                          .map(demande => (
+                            <div
+                              key={demande.id}
+                              onClick={() => {
+                                setFormData({...formData, demande: demande.id})
+                                setDemandeSearch(demande.label || `${demande.numero} - ${demande.type_analyse}`)
+                                setShowDemandeDropdown(false)
+                              }}
+                              className={`px-4 py-2 cursor-pointer hover:bg-lanema-blue-50 text-sm ${
+                                formData.demande === demande.id ? 'bg-lanema-blue-100 text-lanema-blue-700' : 'text-slate-700'
+                              }`}
+                            >
+                              {demande.label || `${demande.numero} - ${demande.type_analyse}`}
+                            </div>
+                          ))
+                        }
+                        {demandes.filter(d => {
+                          const label = d.label || `${d.numero} - ${d.type_analyse}`
+                          return label.toLowerCase().includes(demandeSearch.toLowerCase())
+                        }).length === 0 && (
+                          <div className="px-4 py-2 text-sm text-slate-500">Aucune demande trouvée</div>
+                        )}
+                      </div>
+                    )}
+                    <input type="hidden" value={formData.demande} required />
                   </div>
 
                   <div>

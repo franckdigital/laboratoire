@@ -10,28 +10,71 @@ export function ClientDashboard() {
     en_cours: 0,
     acceptees: 0,
   })
+  const [notifStats, setNotifStats] = useState<any>({ total: 0, non_lues: 0, aujourd_hui: 0, alertes: 0 })
+  const [recentNotifs, setRecentNotifs] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [recentDemandes, setRecentDemandes] = useState<any[]>([])
 
   useEffect(() => {
     loadDashboardData()
+
+    const onFocus = () => {
+      loadDashboardData()
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadDashboardData()
+      }
+    }
+
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    const intervalId = window.setInterval(() => {
+      loadDashboardData()
+    }, 30000)
+
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.clearInterval(intervalId)
+    }
   }, [])
 
   const loadDashboardData = async () => {
     try {
       setIsLoading(true)
-      
-      // Charger les stats
-      const statsData = await api.devis.stats()
+
+      const [statsData, demandesData, notifStatsData, notifsData] = await Promise.all([
+        api.devis.stats(),
+        api.devis.mesDemandes(),
+        api.notifications.stats(),
+        api.notifications.list({ lu: 'false' }),
+      ])
+
       setStats(statsData)
-      
-      // Charger les demandes récentes
-      const demandesData = await api.devis.mesDemandes()
       setRecentDemandes(demandesData.results?.slice(0, 5) || demandesData.slice(0, 5) || [])
+      setNotifStats(notifStatsData)
+      const list = notifsData.results || notifsData || []
+      setRecentNotifs(list.slice(0, 3))
     } catch (error) {
       console.error('Erreur chargement dashboard:', error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const notifColor = (type: string) => {
+    switch (type) {
+      case 'ALERTE':
+        return 'rose'
+      case 'STOCK':
+        return 'lanema-blue'
+      case 'DEMANDE':
+        return 'amber'
+      default:
+        return 'slate'
     }
   }
 
@@ -200,43 +243,56 @@ export function ClientDashboard() {
 
           {/* Alertes & Notifications */}
           <div className="lanema-card p-6">
-            <h2 className="text-base font-semibold text-slate-900 mb-4">Alertes & Notifications</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-slate-900">Alertes & Notifications</h2>
+              <a href="/client/notifications" className="text-xs text-lanema-blue-600 hover:text-lanema-blue-700 font-medium">
+                Voir tout
+              </a>
+            </div>
+
+            <div className="text-xs text-slate-600 mb-3">
+              {notifStats.non_lues} non lues • {notifStats.aujourd_hui} aujourd'hui
+            </div>
+
             <div className="space-y-3">
-              <div className="p-3 rounded-lg bg-amber-50 border border-amber-100">
-                <div className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-amber-600 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div>
-                    <div className="text-xs font-medium text-amber-900">Étalonnage requis</div>
-                    <div className="text-xs text-amber-700 mt-1">1 éq. nécessite un étalonnage cette semaine</div>
-                  </div>
-                </div>
-              </div>
+              {recentNotifs.length === 0 ? (
+                <div className="text-sm text-slate-500">Aucune notification</div>
+              ) : (
+                recentNotifs.map((n) => {
+                  const color = notifColor(n.type_notification)
+                  const bg =
+                    color === 'rose'
+                      ? 'bg-rose-50 border-rose-100'
+                      : color === 'amber'
+                        ? 'bg-amber-50 border-amber-100'
+                        : color === 'lanema-blue'
+                          ? 'bg-lanema-blue-50 border-lanema-blue-100'
+                          : 'bg-slate-50 border-slate-100'
 
-              <div className="p-3 rounded-lg bg-rose-50 border border-rose-100">
-                <div className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-rose-600 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <div>
-                    <div className="text-xs font-medium text-rose-900">Délai dépassé</div>
-                    <div className="text-xs text-rose-700 mt-1">2 rapports en attente de livraison</div>
-                  </div>
-                </div>
-              </div>
+                  const iconColor =
+                    color === 'rose'
+                      ? 'text-rose-600'
+                      : color === 'amber'
+                        ? 'text-amber-600'
+                        : color === 'lanema-blue'
+                          ? 'text-lanema-blue-600'
+                          : 'text-slate-600'
 
-              <div className="p-3 rounded-lg bg-lanema-blue-50 border border-lanema-blue-100">
-                <div className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-lanema-blue-600 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                  </svg>
-                  <div>
-                    <div className="text-xs font-medium text-lanema-blue-900">Stock faible</div>
-                    <div className="text-xs text-lanema-blue-700 mt-1">3 consommables sous le seuil d'alerte</div>
-                  </div>
-                </div>
-              </div>
+                  return (
+                    <div key={n.id} className={`p-3 rounded-lg border ${bg}`}>
+                      <div className="flex items-start gap-2">
+                        <svg className={`w-4 h-4 ${iconColor} mt-0.5`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium text-slate-900 truncate">{n.titre}</div>
+                          <div className="text-xs text-slate-600 mt-1 line-clamp-2">{n.message || ''}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
             </div>
           </div>
         </div>
